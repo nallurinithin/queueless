@@ -10,7 +10,7 @@ V1 --- single-clinic pilot.
 
 ## Current milestone
 
-M8 --- Hardening & End-to-End System Integration (Ready for Gate Review).
+M9 --- Production Deployment, Infrastructure & Operations (Ready for Gate Review).
 
 ## Milestone board
 
@@ -25,8 +25,8 @@ M8 --- Hardening & End-to-End System Integration (Ready for Gate Review).
 | **M6 Notifications/estimates** | **Completed** | Outbox pattern, retry backoff, dead-letter recovery, doctor-segmented wait estimates & approaching alerts tested |
 | **M7 Localization/accessibility** | **Completed** | English/Hindi/Telugu, strict Punjabi exclusion, assisted walk-in & check-in, ARIA live regions & voice audio tested |
 | **M8 Hardening** | **Completed** | Full end-to-end simulated lifecycle, clinical safety lock, RBAC boundaries, OTP rate limit and security hardening pass |
-| M9 Deployment | In progress | Reproducible deployment, backups, monitoring and rollback tested |
-| M10 Pilot | Not started | Clinic onboarding and pilot acceptance documented |
+| **M9 Deployment** | **Completed** | Production Docker compose, multi-stage images, automated backup/restore scripts and rollback runbook tested |
+| M10 Pilot | In progress | Clinic onboarding and pilot acceptance documented |
 
 ## Latest verified state
 
@@ -34,7 +34,13 @@ M8 --- Hardening & End-to-End System Integration (Ready for Gate Review).
 - **npm**: 11.16.0
 - **Git**: 2.53.0
 - **MongoDB**: 8.3.2 (Local ping { ok: 1 }; Atlas cluster Cluster0 available)
-- **Client Build**: Vite production build succeeded (`371.11 kB` JS / `39.50 kB` CSS in 3.16s)
+- **Client Build**: Vite production build succeeded (`382.02 kB` JS / `40.45 kB` CSS in 2.32s)
+- **Production Packaging**:
+  * Multi-stage Server Dockerfile with non-root security runner and healthchecks
+  * Multi-stage Client Dockerfile with Nginx 1.27 Alpine, gzip, and SPA reverse proxy
+  * Production Docker Compose stack (`docker-compose.prod.yml`) with MongoDB healthchecks and data volumes
+  * Automated backup and restore scripts for PowerShell (`backup.ps1`, `restore.ps1`) and Bash (`backup.sh`, `restore.sh`)
+  * Deployment and operations runbook (`docs/DEPLOYMENT_AND_OPERATIONS.md`)
 - **Tests**: 89/89 passing across the full stack
   - Backend: 77/77 passing across 13 test suites:
     * `test/e2e-hardening.test.js` (10 tests: complete end-to-end patient OTP -> family member request -> receptionist slot allocation -> 5-min hold -> payment checkout & webhook confirmation -> on-site check-in -> token issue -> doctor callNext -> consultation safety lock blocking interruption -> consultation completion -> RBAC boundary rejection -> 60s OTP rate limiting)
