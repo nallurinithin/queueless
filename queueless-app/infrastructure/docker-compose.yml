@@ -1,0 +1,19 @@
+# QueueLess Local Infrastructure
+# Optional Docker Compose setup for MongoDB with replica set support
+
+services:
+  mongodb:
+    image: mongo:8.0
+    container_name: queueless-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: queueless_dev
+    volumes:
+      - mongo_data:/data/db
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+
+volumes:
+  mongo_data:
+
