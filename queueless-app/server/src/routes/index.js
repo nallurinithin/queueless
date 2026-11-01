@@ -12,6 +12,8 @@ import clinicRoutes from './clinicRoutes.js';
 import appointmentRoutes from './appointmentRoutes.js';
 import staffAppointmentRoutes from './staffAppointmentRoutes.js';
 import publicScheduleRoutes from './publicScheduleRoutes.js';
+import queueRoutes from './queueRoutes.js';
+import staffQueueRoutes from './staffQueueRoutes.js';
 
 const router = Router();
 
@@ -32,6 +34,8 @@ router.use('/v1/staff/patients', staffAppointmentRoutes);
 router.use('/v1/patient/auth', patientAuthRoutes);
 router.use('/v1/clinic', clinicRoutes);
 router.use('/v1/appointments', appointmentRoutes);
+router.use('/v1/queue', queueRoutes);
+router.use('/v1/staff/queue', staffQueueRoutes);
 router.use('/v1/public', publicScheduleRoutes);
 
 export default router;

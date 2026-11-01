@@ -10,7 +10,7 @@ V1 --- single-clinic pilot.
 
 ## Current milestone
 
-M3 --- Scheduling, Appointments & Family Engine (Ready for Gate Review).
+M4 --- Queue Engine & Real-Time Flow (Ready for Gate Review).
 
 ## Milestone board
 
@@ -20,8 +20,8 @@ M3 --- Scheduling, Appointments & Family Engine (Ready for Gate Review).
 | **M1 Foundation/UI** | **Completed** | Responsive shell, role-aware navbar, and unified staff login reviewed |
 | **M2 Identity/clinic/RBAC** | **Completed** | Bootstrap CLI, staff lifecycle, unified login, persistent patient sessions, and RBAC pass |
 | **M3 Scheduling/appointments** | **Completed** | 50-concurrency hold test, returning patient reuse, family booking, and duplicate warnings pass |
-| M4 Queue engine | Not started | Queue transitions, token uniqueness and realtime recovery pass |
-| M5 Payments | Not started | Verified webhooks, idempotency, refunds and reconciliation tested |
+| **M4 Queue engine** | **Completed** | Queue transitions, monotonic tokens, check-in idempotency, clinical safety guards and privacy display pass |
+| M5 Payments | In progress | Verified webhooks, idempotency, refunds and reconciliation tested |
 | M6 Notifications/estimates | Not started | Outbox/retry and estimate behaviour tested |
 | M7 Localization/accessibility | Not started | English/Hindi/Telugu and assisted/on-site flows verified |
 | M8 Hardening | Not started | Integration, E2E, security and failure tests pass |
@@ -35,8 +35,9 @@ M3 --- Scheduling, Appointments & Family Engine (Ready for Gate Review).
 - **Git**: 2.53.0
 - **MongoDB**: 8.3.2 (Local ping { ok: 1 }; Atlas cluster Cluster0 available)
 - **Client Build**: Vite production build succeeded (`371.11 kB` JS / `39.50 kB` CSS in 3.16s)
-- **Tests**: 45/45 passing across the full stack
-  - Backend: 37/37 passing across 9 test suites:
+- **Tests**: 55/55 passing across the full stack
+  - Backend: 47/47 passing across 10 test suites:
+    * `test/queue.test.js` (10 tests: patient self-check-in with booking reference, check-in idempotency, receptionist walk-in FIFO token with ₹0 deposit, 20-concurrency monotonic token uniqueness without collision, callNext transitions, clinical safety guard blocking interruption of active consultations with 409 conflict, completeConsultation, skip/recall workflow, privacy-preserving public display with zero PII, live token tracking)
     * `test/concurrency.test.js` (1 test: **50 concurrent requests for 1 slot** — exactly 1 succeeds, 49 receive 409 conflict, zero overbooking)
     * `test/appointments.test.js` (6 tests: Self booking, new family member booking, returning patient ID reuse, household appointment retrieval, receptionist allocation with 5-minute hold, duplicate candidate check with warnings)
     * `test/health.test.js` (3 tests)

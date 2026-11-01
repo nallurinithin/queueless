@@ -13,3 +13,5 @@ export * from './Doctor.js';
 export * from './Appointment.js';
 export * from './SlotHold.js';
 export * from './DoctorSchedule.js';
+export * from './QueueEntry.js';
+export * from './QueueSequenceCounter.js';
