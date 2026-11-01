@@ -14,6 +14,8 @@ import staffAppointmentRoutes from './staffAppointmentRoutes.js';
 import publicScheduleRoutes from './publicScheduleRoutes.js';
 import queueRoutes from './queueRoutes.js';
 import staffQueueRoutes from './staffQueueRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
+import staffPaymentRoutes from './staffPaymentRoutes.js';
 
 const router = Router();
 
@@ -36,6 +38,8 @@ router.use('/v1/clinic', clinicRoutes);
 router.use('/v1/appointments', appointmentRoutes);
 router.use('/v1/queue', queueRoutes);
 router.use('/v1/staff/queue', staffQueueRoutes);
+router.use('/v1/payments', paymentRoutes);
+router.use('/v1/staff/payments', staffPaymentRoutes);
 router.use('/v1/public', publicScheduleRoutes);
 
 export default router;

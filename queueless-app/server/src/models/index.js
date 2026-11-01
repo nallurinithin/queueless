@@ -15,3 +15,5 @@ export * from './SlotHold.js';
 export * from './DoctorSchedule.js';
 export * from './QueueEntry.js';
 export * from './QueueSequenceCounter.js';
+export * from './PaymentOrder.js';
+export * from './PaymentWebhookEvent.js';
