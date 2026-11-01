@@ -1,59 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { LanguageProvider } from './context/LanguageContext';
+import { AuthProvider } from './context/AuthContext';
+import { Navbar } from './components/layout/Navbar';
+import { Footer } from './components/layout/Footer';
+import { PublicLanding } from './pages/PublicLanding';
+import { PatientBooking } from './pages/PatientBooking';
+import { PatientCheckIn } from './pages/PatientCheckIn';
+import { PatientQueue } from './pages/PatientQueue';
+import { WaitingRoomDisplay } from './pages/WaitingRoomDisplay';
+import { StaffLogin } from './pages/StaffLogin';
+import { ReceptionistDashboard } from './pages/dashboards/ReceptionistDashboard';
+import { DoctorDashboard } from './pages/dashboards/DoctorDashboard';
+import { OwnerDashboard } from './pages/dashboards/OwnerDashboard';
 
-export default function App() {
-  const [health, setHealth] = useState(null);
-  const [loading, setLoading] = useState(true);
+function AppLayout({ children }) {
+  const location = useLocation();
+  const isDisplayRoute = location.pathname === '/display';
 
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => res.json())
-      .then((data) => {
-        setHealth(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Health check failed:', err);
-        setLoading(false);
-      });
-  }, []);
+  if (isDisplayRoute) {
+    return <main>{children}</main>;
+  }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-md p-8 border border-slate-200">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-teal-600 flex items-center justify-center text-white font-bold text-xl">
-            Q
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">QueueLess</h1>
-            <p className="text-xs text-slate-500">Clinic Appointment & Queue Management</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
-            <h2 className="text-sm font-semibold text-slate-700 mb-2">Backend Connection</h2>
-            {loading ? (
-              <p className="text-sm text-slate-500">Testing /api/health...</p>
-            ) : health?.status === 'ok' ? (
-              <div className="text-sm text-emerald-600 font-medium flex items-center space-x-2">
-                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                <span>API Online ({health.service})</span>
-              </div>
-            ) : (
-              <div className="text-sm text-rose-500 font-medium">
-                Offline or not responding
-              </div>
-            )}
-          </div>
-
-          <div className="text-xs text-slate-400 space-y-1">
-            <p>Milestone: <strong>M0 (Environment & Repository)</strong></p>
-            <p>Languages: English (Primary), Hindi, Telugu</p>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased">
+      <Navbar />
+      <main className="flex-1">{children}</main>
+      <Footer />
     </div>
   );
 }
 
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppLayout>
+            <Routes>
+              {/* Public & Patient Routes */}
+              <Route path="/" element={<PublicLanding />} />
+              <Route path="/book" element={<PatientBooking />} />
+              <Route path="/check-in" element={<PatientCheckIn />} />
+              <Route path="/queue" element={<PatientQueue />} />
+              <Route path="/display" element={<WaitingRoomDisplay />} />
+
+              {/* Staff Authentication */}
+              <Route path="/staff/login" element={<StaffLogin />} />
+
+              {/* Staff Role Dashboards */}
+              <Route path="/staff/receptionist" element={<ReceptionistDashboard />} />
+              <Route path="/staff/doctor" element={<DoctorDashboard />} />
+              <Route path="/staff/owner" element={<OwnerDashboard />} />
+
+              {/* Fallback */}
+              <Route path="*" element={<PublicLanding />} />
+            </Routes>
+          </AppLayout>
+        </BrowserRouter>
+      </AuthProvider>
+    </LanguageProvider>
+  );
+}
