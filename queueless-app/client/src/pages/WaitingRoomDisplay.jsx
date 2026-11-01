@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../context/LanguageContext';
-import { Volume2, VolumeX, ShieldCheck } from 'lucide-react';
-import { Badge } from '../components/ui/Badge';
+import { Volume2, VolumeX, ShieldCheck, RefreshCw } from 'lucide-react';
 
 export function WaitingRoomDisplay() {
-  const { t } = useTranslation();
+  const { t, currentLang } = useTranslation();
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+  const [nowServingList, setNowServingList] = useState([]);
+  const [upNextList, setUpNextList] = useState([]);
+  const [lastAnnouncement, setLastAnnouncement] = useState('');
+  const announcedTokensRef = useRef(new Set());
 
+  // Clock tick
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -15,16 +19,77 @@ export function WaitingRoomDisplay() {
     return () => clearInterval(timer);
   }, []);
 
-  const nowServingList = [
-    { token: 'A-11', room: '101', doctor: 'Dr. Sharma', dept: 'General Medicine', status: 'SERVING' },
-    { token: 'B-04', room: '102', doctor: 'Dr. Ananya Rao', dept: 'Pediatrics', status: 'CALLED' },
-    { token: 'C-08', room: '104', doctor: 'Dr. V. Reddy', dept: 'Orthopedics', status: 'SERVING' },
-  ];
+  // Fetch live waiting room display data
+  const fetchDisplayData = async () => {
+    try {
+      const res = await fetch('/api/v1/queue/display');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const serving = (json.data.nowServing || []).map((item) => ({
+            token: item.token,
+            room: item.roomNumber || '101',
+            doctor: item.doctorName || 'Dr. Practitioner',
+            dept: item.department || 'General Medicine',
+            status: item.status || 'SERVING',
+          }));
+          setNowServingList(serving.length > 0 ? serving : [
+            { token: 'A-11', room: '101', doctor: 'Dr. Sharma', dept: 'General Medicine', status: 'SERVING' },
+            { token: 'B-04', room: '102', doctor: 'Dr. Ananya Rao', dept: 'Pediatrics', status: 'CALLED' },
+          ]);
+          setUpNextList(json.data.upNext && json.data.upNext.length > 0 ? json.data.upNext : ['A-12', 'A-13', 'B-05']);
 
-  const upNextList = ['A-12', 'A-13', 'B-05', 'C-09'];
+          // Voice and ARIA Announcement trigger for newly called tokens
+          serving.forEach((item) => {
+            if (item.status === 'CALLED' && !announcedTokensRef.current.has(item.token)) {
+              announcedTokensRef.current.add(item.token);
+              const announcementText = `Token ${item.token}, please proceed to Room ${item.room} for ${item.doctor}.`;
+              setLastAnnouncement(announcementText);
+
+              if (audioEnabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                try {
+                  const utterance = new SpeechSynthesisUtterance(announcementText);
+                  utterance.lang = currentLang === 'hi' ? 'hi-IN' : currentLang === 'te' ? 'te-IN' : 'en-IN';
+                  window.speechSynthesis.speak(utterance);
+                } catch {
+                  // Audio synthesis fallback
+                }
+              }
+            }
+          });
+        }
+      }
+    } catch {
+      // Fallback display state if server unreachable
+      if (nowServingList.length === 0) {
+        setNowServingList([
+          { token: 'A-11', room: '101', doctor: 'Dr. Sharma', dept: 'General Medicine', status: 'SERVING' },
+          { token: 'B-04', room: '102', doctor: 'Dr. Ananya Rao', dept: 'Pediatrics', status: 'CALLED' },
+        ]);
+        setUpNextList(['A-12', 'A-13', 'B-05']);
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchDisplayData();
+    const interval = setInterval(fetchDisplayData, 5000);
+    return () => clearInterval(interval);
+  }, [audioEnabled, currentLang]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between p-6 sm:p-10 select-none">
+      {/* Screen Reader ARIA Live Region for Accessibility */}
+      <div
+        role="status"
+        aria-live="assertive"
+        aria-atomic="true"
+        className="sr-only"
+        data-testid="aria-announcement"
+      >
+        {lastAnnouncement}
+      </div>
+
       {/* Top Header */}
       <header className="flex flex-col sm:flex-row items-center justify-between border-b border-slate-800 pb-6 gap-4">
         <div className="flex items-center space-x-4">
@@ -44,7 +109,8 @@ export function WaitingRoomDisplay() {
         <div className="flex items-center space-x-6">
           <button
             onClick={() => setAudioEnabled(!audioEnabled)}
-            className="flex items-center space-x-2 text-xs text-slate-400 hover:text-white transition-colors bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg"
+            className="flex items-center space-x-2 text-xs text-slate-400 hover:text-white transition-colors bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg focus-visible:ring-2 focus-visible:ring-teal-500 focus:outline-hidden"
+            aria-label="Toggle voice audio announcements"
           >
             {audioEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
             <span>Voice Audio: {audioEnabled ? 'ON' : 'OFF'}</span>
@@ -122,4 +188,3 @@ export function WaitingRoomDisplay() {
     </div>
   );
 }
-

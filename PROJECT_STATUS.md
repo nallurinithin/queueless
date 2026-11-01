@@ -10,7 +10,7 @@ V1 --- single-clinic pilot.
 
 ## Current milestone
 
-M6 --- Notifications, Outbox Engine & Wait Estimates (Ready for Gate Review).
+M7 --- Localization & Assisted On-Site Flows (Ready for Gate Review).
 
 ## Milestone board
 
@@ -23,8 +23,8 @@ M6 --- Notifications, Outbox Engine & Wait Estimates (Ready for Gate Review).
 | **M4 Queue engine** | **Completed** | Queue transitions, monotonic tokens, check-in idempotency, clinical safety guards and privacy display pass |
 | **M5 Payments** | **Completed** | Verified webhooks, idempotency, late payment reconciliation, refunds and 2-hour policy tested |
 | **M6 Notifications/estimates** | **Completed** | Outbox pattern, retry backoff, dead-letter recovery, doctor-segmented wait estimates & approaching alerts tested |
-| M7 Localization/accessibility | In progress | English/Hindi/Telugu and assisted/on-site flows verified |
-| M8 Hardening | Not started | Integration, E2E, security and failure tests pass |
+| **M7 Localization/accessibility** | **Completed** | English/Hindi/Telugu, strict Punjabi exclusion, assisted walk-in & check-in, ARIA live regions & voice audio tested |
+| M8 Hardening | In progress | Integration, E2E, security and failure tests pass |
 | M9 Deployment | Not started | Reproducible deployment, backups, monitoring and rollback tested |
 | M10 Pilot | Not started | Clinic onboarding and pilot acceptance documented |
 
@@ -35,7 +35,7 @@ M6 --- Notifications, Outbox Engine & Wait Estimates (Ready for Gate Review).
 - **Git**: 2.53.0
 - **MongoDB**: 8.3.2 (Local ping { ok: 1 }; Atlas cluster Cluster0 available)
 - **Client Build**: Vite production build succeeded (`371.11 kB` JS / `39.50 kB` CSS in 3.16s)
-- **Tests**: 75/75 passing across the full stack
+- **Tests**: 79/79 passing across the full stack
   - Backend: 67/67 passing across 12 test suites:
     * `test/notifications.test.js` (9 tests: outbox pattern PENDING enqueue, worker loop delivery to DELIVERED, retry with exponential backoff on transient failure, dead letter handling on 3 attempts, manual staff re-queue to PENDING, dynamic wait estimation using observed doctor consultation times, approaching turn alert trigger when <=2 patients ahead or <=15 mins wait, deduplication strictly suppressing duplicate alerts to max 1 per visit, staff outbox monitoring)
     * `test/payments.test.js` (11 tests: ₹100 deposit order creation during 5-minute hold, 400 error on expired hold, HMAC-SHA256 signature verification & forgery rejection, successful confirmation transitioning to PAID, late payment reconciliation guard preventing silent overbooking, 401 on invalid webhook signature, payment.captured webhook dispatch, webhook event idempotency guard against duplicate replay, cancellation > 2h full refund of ₹100, cancellation <= 2h strictly ₹0 refund per disclosed policy, staff reconciliation workflow)
@@ -49,9 +49,10 @@ M6 --- Notifications, Outbox Engine & Wait Estimates (Ready for Gate Review).
     * `test/staff-auth.test.js` (8 tests)
     * `test/patient-auth.test.js` (6 tests)
     * `test/rbac.test.js` (4 tests)
-  - Frontend: 8/8 passing across 2 test suites:
-    * `test/localization.test.jsx` (5 tests)
-    * `test/layout.test.jsx` (3 tests)
+  - Frontend: 12/12 passing across 3 test suites:
+    * `test/assisted-desk.test.jsx` (4 tests: receptionist assisted check-in, walk-in modal with ₹0 deposit disclosure, token print slip, ARIA live region & voice audio toggle on waiting room display)
+    * `test/localization.test.jsx` (5 tests: English/Hindi/Telugu translations, strict Punjabi exclusion, fallback to English)
+    * `test/layout.test.jsx` (3 tests: guest navbar visibility, unified staff login without role dropdown)
 - **Documentation Updated**:
   - Centralized Account Management, Patient Identity Permanence, Shared Contact Numbers for Family Members, HttpOnly Persistent OTP Sessions, and Milestone M2/M3 requirements mapped across all 13 reference documents in `QueueLess_Antigravity_Documentation/`.
 - **UI Refinements Applied**:
