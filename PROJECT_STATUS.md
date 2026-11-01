@@ -10,7 +10,7 @@ V1 --- single-clinic pilot.
 
 ## Current milestone
 
-M5 --- Payments, Webhooks, Idempotency & Reconciliation (Ready for Gate Review).
+M6 --- Notifications, Outbox Engine & Wait Estimates (Ready for Gate Review).
 
 ## Milestone board
 
@@ -22,8 +22,8 @@ M5 --- Payments, Webhooks, Idempotency & Reconciliation (Ready for Gate Review).
 | **M3 Scheduling/appointments** | **Completed** | 50-concurrency hold test, returning patient reuse, family booking, and duplicate warnings pass |
 | **M4 Queue engine** | **Completed** | Queue transitions, monotonic tokens, check-in idempotency, clinical safety guards and privacy display pass |
 | **M5 Payments** | **Completed** | Verified webhooks, idempotency, late payment reconciliation, refunds and 2-hour policy tested |
-| M6 Notifications/estimates | In progress | Outbox/retry and estimate behaviour tested |
-| M7 Localization/accessibility | Not started | English/Hindi/Telugu and assisted/on-site flows verified |
+| **M6 Notifications/estimates** | **Completed** | Outbox pattern, retry backoff, dead-letter recovery, doctor-segmented wait estimates & approaching alerts tested |
+| M7 Localization/accessibility | In progress | English/Hindi/Telugu and assisted/on-site flows verified |
 | M8 Hardening | Not started | Integration, E2E, security and failure tests pass |
 | M9 Deployment | Not started | Reproducible deployment, backups, monitoring and rollback tested |
 | M10 Pilot | Not started | Clinic onboarding and pilot acceptance documented |
@@ -35,8 +35,9 @@ M5 --- Payments, Webhooks, Idempotency & Reconciliation (Ready for Gate Review).
 - **Git**: 2.53.0
 - **MongoDB**: 8.3.2 (Local ping { ok: 1 }; Atlas cluster Cluster0 available)
 - **Client Build**: Vite production build succeeded (`371.11 kB` JS / `39.50 kB` CSS in 3.16s)
-- **Tests**: 66/66 passing across the full stack
-  - Backend: 58/58 passing across 11 test suites:
+- **Tests**: 75/75 passing across the full stack
+  - Backend: 67/67 passing across 12 test suites:
+    * `test/notifications.test.js` (9 tests: outbox pattern PENDING enqueue, worker loop delivery to DELIVERED, retry with exponential backoff on transient failure, dead letter handling on 3 attempts, manual staff re-queue to PENDING, dynamic wait estimation using observed doctor consultation times, approaching turn alert trigger when <=2 patients ahead or <=15 mins wait, deduplication strictly suppressing duplicate alerts to max 1 per visit, staff outbox monitoring)
     * `test/payments.test.js` (11 tests: ₹100 deposit order creation during 5-minute hold, 400 error on expired hold, HMAC-SHA256 signature verification & forgery rejection, successful confirmation transitioning to PAID, late payment reconciliation guard preventing silent overbooking, 401 on invalid webhook signature, payment.captured webhook dispatch, webhook event idempotency guard against duplicate replay, cancellation > 2h full refund of ₹100, cancellation <= 2h strictly ₹0 refund per disclosed policy, staff reconciliation workflow)
     * `test/queue.test.js` (10 tests: patient self-check-in with booking reference, check-in idempotency, receptionist walk-in FIFO token with ₹0 deposit, 20-concurrency monotonic token uniqueness without collision, callNext transitions, clinical safety guard blocking interruption of active consultations with 409 conflict, completeConsultation, skip/recall workflow, privacy-preserving public display with zero PII, live token tracking)
     * `test/concurrency.test.js` (1 test: **50 concurrent requests for 1 slot** — exactly 1 succeeds, 49 receive 409 conflict, zero overbooking)

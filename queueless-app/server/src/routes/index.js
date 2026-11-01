@@ -16,6 +16,8 @@ import queueRoutes from './queueRoutes.js';
 import staffQueueRoutes from './staffQueueRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
 import staffPaymentRoutes from './staffPaymentRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
+import staffNotificationRoutes from './staffNotificationRoutes.js';
 
 const router = Router();
 
@@ -40,6 +42,8 @@ router.use('/v1/queue', queueRoutes);
 router.use('/v1/staff/queue', staffQueueRoutes);
 router.use('/v1/payments', paymentRoutes);
 router.use('/v1/staff/payments', staffPaymentRoutes);
+router.use('/v1/notifications', notificationRoutes);
+router.use('/v1/staff/notifications', staffNotificationRoutes);
 router.use('/v1/public', publicScheduleRoutes);
 
 export default router;

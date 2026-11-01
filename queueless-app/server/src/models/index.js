@@ -17,3 +17,4 @@ export * from './QueueEntry.js';
 export * from './QueueSequenceCounter.js';
 export * from './PaymentOrder.js';
 export * from './PaymentWebhookEvent.js';
+export * from './NotificationOutbox.js';
