@@ -21,17 +21,34 @@ export function AuthProvider({ children }) {
     return null;
   });
 
-  const login = (role, staffDetails = {}) => {
+  const login = (emailOrRole, password = '') => {
+    let resolvedRole = ROLES.RECEPTIONIST;
+    let staffName = 'Priya (Receptionist)';
+    const identifier = (typeof emailOrRole === 'string' ? emailOrRole : '').toLowerCase();
+
+    if (identifier.includes('admin') || identifier.includes('owner') || identifier.includes('patel')) {
+      resolvedRole = ROLES.OWNER;
+      staffName = 'Dr. Patel (Clinic Owner)';
+    } else if (identifier.includes('doc') || identifier.includes('sharma') || identifier.includes('practitioner')) {
+      resolvedRole = ROLES.DOCTOR;
+      staffName = 'Dr. Sharma (Doctor)';
+    } else {
+      resolvedRole = ROLES.RECEPTIONIST;
+      staffName = 'Priya (Receptionist)';
+    }
+
     const authData = {
-      id: staffDetails.id || `staff_${Date.now()}`,
-      name: staffDetails.name || (role === ROLES.DOCTOR ? 'Dr. Sharma' : role === ROLES.OWNER ? 'Dr. Patel (Admin)' : 'Priya (Reception)'),
-      role,
+      id: `staff_${Date.now()}`,
+      name: staffName,
+      email: identifier.includes('@') ? identifier : `${resolvedRole}@aarogyam.clinic`,
+      role: resolvedRole,
       clinicId: 'clinic_aarogyam_01',
       token: `mock_session_${Date.now()}`,
       loginAt: new Date().toISOString(),
     };
     setUser(authData);
     localStorage.setItem('queueless_staff_user', JSON.stringify(authData));
+    return authData;
   };
 
   const logout = () => {
@@ -53,3 +70,4 @@ export function useAuth() {
   }
   return context;
 }
+

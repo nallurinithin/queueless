@@ -13,13 +13,38 @@ export function Navbar() {
   const { t } = useTranslation();
   const { user, logout, isAuthenticated } = useAuth();
 
+  // Public visitor links (shown only when no staff is logged in)
   const publicLinks = [
-    { to: '/', label: t('nav.home'), icon: null },
+    { to: '/', label: t('nav.home') },
     { to: '/book', label: t('nav.bookAppointment'), icon: Calendar },
-    { to: '/check-in', label: t('nav.checkIn'), icon: CheckCircle2 },
     { to: '/queue', label: t('nav.liveQueue'), icon: Clock },
-    { to: '/display', label: t('nav.display'), icon: Tv },
   ];
+
+  // Role-specific staff navigation links
+  const getStaffLinks = () => {
+    if (!user) return [];
+    switch (user.role) {
+      case ROLES.RECEPTIONIST:
+        return [
+          { to: '/staff/receptionist', label: 'Reception Desk', icon: UserCheck },
+          { to: '/queue', label: t('nav.liveQueue'), icon: Clock },
+        ];
+      case ROLES.DOCTOR:
+        return [
+          { to: '/staff/doctor', label: 'Doctor Console', icon: UserCheck },
+          { to: '/queue', label: t('nav.liveQueue'), icon: Clock },
+        ];
+      case ROLES.OWNER:
+        return [
+          { to: '/staff/owner', label: 'Clinic Overview', icon: UserCheck },
+          { to: '/queue', label: t('nav.liveQueue'), icon: Clock },
+        ];
+      default:
+        return publicLinks;
+    }
+  };
+
+  const navLinks = isAuthenticated ? getStaffLinks() : publicLinks;
 
   const getDashboardLink = () => {
     if (!user) return '/staff/login';
@@ -60,7 +85,7 @@ export function Navbar() {
 
           {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center space-x-1 lg:space-x-2">
-            {publicLinks.map((item) => (
+            {navLinks.map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
@@ -84,7 +109,7 @@ export function Navbar() {
                 <Link to={getDashboardLink()}>
                   <Badge variant="primary" size="lg" className="cursor-pointer hover:bg-teal-100">
                     <UserCheck className="w-3.5 h-3.5 mr-1" />
-                    {user.name} ({t(`auth.role${user.role.charAt(0).toUpperCase() + user.role.slice(1)}`)})
+                    {user.name}
                   </Badge>
                 </Link>
                 <button
@@ -122,7 +147,7 @@ export function Navbar() {
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-slate-200 bg-white px-4 pt-2 pb-4 space-y-1">
-          {publicLinks.map((item) => (
+          {navLinks.map((item) => (
             <Link
               key={item.to}
               to={item.to}
@@ -171,3 +196,4 @@ export function Navbar() {
     </nav>
   );
 }
+

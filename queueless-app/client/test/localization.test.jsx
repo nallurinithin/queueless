@@ -87,3 +87,4 @@ describe('Localization System (en, hi, te)', () => {
     expect(screen.getByTestId('fallback').textContent).toBe('nonexistent.fakeKey');
   });
 });
+

@@ -32,3 +32,4 @@ export function CardContent({ children, className = '' }) {
 export function CardFooter({ children, className = '' }) {
   return <div className={`mt-6 pt-4 border-t border-slate-100 flex items-center justify-between ${className}`}>{children}</div>;
 }
+

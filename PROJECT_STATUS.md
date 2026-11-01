@@ -34,10 +34,17 @@ M1 --- Foundation and UI (Ready for UI Walkthrough Gate Review).
 - **npm**: 11.16.0
 - **Git**: 2.53.0
 - **MongoDB**: 8.3.2 (Local ping { ok: 1 }; Atlas cluster Cluster0 available)
-- **Client Build**: Vite production build succeeded (`360.28 kB` JS / `39.14 kB` CSS in 3.15s)
-- **Tests**: 10/10 passing
+- **Client Build**: Vite production build succeeded (`371.11 kB` JS / `39.50 kB` CSS in 3.16s)
+- **Tests**: 12/12 passing
   - Backend: 4/4 passing (Health check, API info, 404 handler, MongoDB ping)
-  - Frontend: 6/6 passing (Language default, Hindi/Telugu switching, Punjabi exclusion, fallback, shell routing)
+  - Frontend: 8/8 passing (Language default, Hindi/Telugu switching, Punjabi exclusion, fallback, shell routing, role-aware navbar, unified staff login without role dropdown)
+- **Documentation Updated**:
+  - Centralized Account Management, Patient Identity Permanence, Shared Contact Numbers for Family Members, HttpOnly Persistent OTP Sessions, and Milestone M2/M3 requirements mapped across all 13 reference documents in `QueueLess_Antigravity_Documentation/`.
+- **UI Refinements Applied**:
+  - Role-aware navbar: unauthenticated visitors only see Home, Book Appointment, Track Live Queue, Language selector, and Staff Login.
+  - Staff Login: eliminated role selector dropdown; single common login form (email/password) with backend-driven role routing.
+  - Owner Dashboard: functional "Manage Staff" modal with invite, resend, and deactivate actions.
+  - Live Queue: replaced hardcoded `A-14` demo state with clean empty state and interactive token search.
 - **Deployment**: Local development verified.
 - **Known blockers**: None.
 

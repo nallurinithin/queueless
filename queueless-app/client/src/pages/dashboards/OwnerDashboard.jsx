@@ -1,12 +1,62 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from '../../context/LanguageContext';
 import { Card, CardTitle, CardDescription } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Building2, Users, Calendar, ShieldCheck, Settings, FileText } from 'lucide-react';
+import { Modal } from '../../components/ui/Modal';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { Building2, Users, Calendar, ShieldCheck, Settings, FileText, UserPlus, Mail, CheckCircle2, RotateCcw, Ban } from 'lucide-react';
 
 export function OwnerDashboard() {
   const { t } = useTranslation();
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [inviteSuccessMsg, setInviteSuccessMsg] = useState('');
+
+  // Staff Management State
+  const [staffList, setStaffList] = useState([
+    { id: 'st_1', name: 'Dr. Sharma', email: 'dr.sharma@aarogyam.clinic', role: 'Doctor', dept: 'General Medicine', status: 'ACTIVE' },
+    { id: 'st_2', name: 'Dr. Ananya Rao', email: 'dr.rao@aarogyam.clinic', role: 'Doctor', dept: 'Pediatrics', status: 'ACTIVE' },
+    { id: 'st_3', name: 'Dr. V. Reddy', email: 'dr.reddy@aarogyam.clinic', role: 'Doctor', dept: 'Orthopedics', status: 'ACTIVE' },
+    { id: 'st_4', name: 'Priya Verma', email: 'reception@aarogyam.clinic', role: 'Receptionist', dept: 'Front Desk', status: 'ACTIVE' },
+  ]);
+
+  // Invite Form State
+  const [inviteName, setInviteName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('Doctor');
+  const [inviteDept, setInviteDept] = useState('General Medicine');
+
+  const handleSendInvite = (e) => {
+    e.preventDefault();
+    if (!inviteName.trim() || !inviteEmail.trim()) return;
+
+    const newStaff = {
+      id: `st_${Date.now()}`,
+      name: inviteName,
+      email: inviteEmail,
+      role: inviteRole,
+      dept: inviteDept,
+      status: 'INVITED',
+    };
+
+    setStaffList((prev) => [...prev, newStaff]);
+    setInviteSuccessMsg(`Invitation dispatched to ${inviteEmail}. Activation link generated.`);
+    setInviteName('');
+    setInviteEmail('');
+    setTimeout(() => setInviteSuccessMsg(''), 6000);
+  };
+
+  const handleToggleStatus = (id) => {
+    setStaffList((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, status: s.status === 'ACTIVE' ? 'DEACTIVATED' : 'ACTIVE' } : s))
+    );
+  };
+
+  const handleResend = (email) => {
+    setInviteSuccessMsg(`Fresh invitation token generated and resent to ${email}.`);
+    setTimeout(() => setInviteSuccessMsg(''), 5000);
+  };
 
   const clinicStats = [
     { label: 'Total Consultations Today', value: '48', change: '+12% vs last week' },
@@ -62,7 +112,9 @@ export function OwnerDashboard() {
                 <Users className="w-5 h-5 text-teal-600" />
                 <span>{t('dashboards.owner.departments')}</span>
               </h3>
-              <Button variant="outline" size="sm">Manage Staff</Button>
+              <Button variant="outline" size="sm" onClick={() => setIsStaffModalOpen(true)}>
+                Manage Staff
+              </Button>
             </div>
 
             <div className="divide-y divide-slate-100">
@@ -95,7 +147,7 @@ export function OwnerDashboard() {
             <div className="space-y-3 text-xs text-slate-600">
               <div className="p-3 bg-slate-50 rounded-lg">
                 <span className="font-semibold text-slate-800 block mb-0.5">Advance Deposit</span>
-                <p>₹100 (Applicable to confirmed remote appointments only). Walk-ins pay ₹0 advance.</p>
+                <p>₹120 (Applicable to confirmed remote appointments only). Walk-ins pay ₹0 advance.</p>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-lg">
@@ -111,6 +163,127 @@ export function OwnerDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Staff Management Modal */}
+      <Modal
+        isOpen={isStaffModalOpen}
+        onClose={() => setIsStaffModalOpen(false)}
+        title="Centralized Clinic Staff Management"
+        size="lg"
+      >
+        <div className="space-y-6">
+          {inviteSuccessMsg && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-lg flex items-center space-x-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>{inviteSuccessMsg}</span>
+            </div>
+          )}
+
+          {/* Invite New Staff Form */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <h4 className="font-bold text-slate-900 text-sm mb-3 flex items-center space-x-1.5">
+              <UserPlus className="w-4 h-4 text-teal-600" />
+              <span>Invite New Staff Member</span>
+            </h4>
+
+            <form onSubmit={handleSendInvite} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Full Name"
+                placeholder="e.g. Dr. Ramesh Kumar"
+                required
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+              />
+
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="e.g. ramesh@aarogyam.clinic"
+                required
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+
+              <Select
+                label="Role"
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+                options={[
+                  { value: 'Doctor', label: 'Doctor / Consultant' },
+                  { value: 'Receptionist', label: 'Receptionist' },
+                ]}
+              />
+
+              <Select
+                label="Department"
+                value={inviteDept}
+                onChange={(e) => setInviteDept(e.target.value)}
+                options={[
+                  { value: 'General Medicine', label: 'General Medicine' },
+                  { value: 'Pediatrics', label: 'Pediatrics' },
+                  { value: 'Orthopedics', label: 'Orthopedics' },
+                  { value: 'Front Desk', label: 'Front Desk' },
+                ]}
+              />
+
+              <div className="sm:col-span-2 pt-1">
+                <Button variant="primary" size="md" type="submit" className="w-full">
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send Invitation Token
+                </Button>
+                <p className="text-[11px] text-slate-500 mt-1.5 text-center">
+                  Staff member will receive a secure, single-use link to set their own password.
+                </p>
+              </div>
+            </form>
+          </div>
+
+          {/* Current Staff Roster */}
+          <div>
+            <h4 className="font-bold text-slate-900 text-sm mb-2">Active & Invited Staff ({staffList.length})</h4>
+            <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+              {staffList.map((staff) => (
+                <div key={staff.id} className="p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white hover:bg-slate-50/50">
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold text-slate-900 text-sm">{staff.name}</span>
+                      <Badge variant={staff.status === 'ACTIVE' ? 'success' : staff.status === 'INVITED' ? 'warning' : 'default'} size="sm">
+                        {staff.status}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {staff.role} • {staff.dept} • {staff.email}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    {staff.status === 'INVITED' && (
+                      <Button variant="outline" size="sm" onClick={() => handleResend(staff.email)}>
+                        <RotateCcw className="w-3 h-3 mr-1" />
+                        Resend
+                      </Button>
+                    )}
+                    <Button
+                      variant={staff.status === 'ACTIVE' ? 'outline' : 'secondary'}
+                      size="sm"
+                      onClick={() => handleToggleStatus(staff.id)}
+                    >
+                      {staff.status === 'ACTIVE' ? (
+                        <>
+                          <Ban className="w-3 h-3 mr-1 text-rose-500" />
+                          Deactivate
+                        </>
+                      ) : (
+                        'Reactivate'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

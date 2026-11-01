@@ -4,20 +4,13 @@ import { Card, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
-import { Clock, Users, Bell, RefreshCw } from 'lucide-react';
+import { Clock, Users, Bell, RefreshCw, Search, CheckCircle2 } from 'lucide-react';
 
 export function PatientQueue() {
   const { t } = useTranslation();
-  const [tokenQuery, setTokenQuery] = useState('A-14');
-  const [activeQueue, setActiveQueue] = useState({
-    nowServing: 'A-11',
-    searchedToken: 'A-14',
-    patientsAhead: 2,
-    estimatedWaitMins: 18,
-    doctor: 'Dr. Sharma',
-    department: 'General Medicine',
-    status: 'statusEligible', // statusWaiting, statusEligible, statusCalled, statusServing
-  });
+  const [tokenQuery, setTokenQuery] = useState('');
+  const [activeQueue, setActiveQueue] = useState(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
   const getStatusBadge = (statusKey) => {
     switch (statusKey) {
@@ -37,18 +30,37 @@ export function PatientQueue() {
   const handleSearch = (e) => {
     e.preventDefault();
     if (!tokenQuery.trim()) return;
-    setActiveQueue((prev) => ({
-      ...prev,
-      searchedToken: tokenQuery.toUpperCase(),
-      patientsAhead: Math.floor(Math.random() * 4),
-      estimatedWaitMins: Math.floor(5 + Math.random() * 25),
-    }));
+
+    setHasSearched(true);
+    // In M1: interactive prototype response. In M4: real Socket.IO queue tracking.
+    setActiveQueue({
+      nowServing: 'A-11',
+      searchedToken: tokenQuery.trim().toUpperCase(),
+      patientsAhead: 2,
+      estimatedWaitMins: 15,
+      doctor: 'Dr. Sharma',
+      department: 'General Medicine',
+      status: 'statusEligible',
+    });
+  };
+
+  const handleClear = () => {
+    setTokenQuery('');
+    setActiveQueue(null);
+    setHasSearched(false);
   };
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 space-y-6">
       {/* Search Bar */}
       <Card className="border-slate-200">
+        <div className="mb-3">
+          <h2 className="text-xl font-bold text-slate-900">{t('patientQueue.title')}</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Check your real-time queue position and approximate arrival estimate.
+          </p>
+        </div>
+
         <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
             <Input
@@ -58,85 +70,108 @@ export function PatientQueue() {
             />
           </div>
           <Button variant="primary" type="submit">
+            <Search className="w-4 h-4 mr-1.5" />
             {t('patientQueue.search')}
           </Button>
+          {hasSearched && (
+            <Button variant="outline" type="button" onClick={handleClear}>
+              Clear
+            </Button>
+          )}
         </form>
       </Card>
 
-      {/* Main Queue Card */}
-      <Card className="border-slate-200 shadow-lg overflow-hidden">
-        {/* Now Serving Highlight Header */}
-        <div className="bg-slate-900 text-white p-6 -m-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-teal-400">
-              {t('patientQueue.currentToken')}
-            </span>
-            <div className="text-4xl sm:text-5xl font-black text-white mt-1">
-              {activeQueue.nowServing}
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Room 102 • {activeQueue.doctor}
-            </p>
-          </div>
-
-          <div className="text-right sm:text-right w-full sm:w-auto flex justify-between sm:block">
-            <span className="text-xs text-slate-400 block">Clinic Queue Mode</span>
-            <span className="inline-flex items-center text-xs text-emerald-400 mt-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-ping" />
-              Live & Synced
-            </span>
-          </div>
-        </div>
-
-        {/* Your Token Details */}
-        <div className="space-y-6 pt-2">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-slate-100 gap-3">
+      {/* Main Queue State */}
+      {activeQueue ? (
+        <Card className="border-slate-200 shadow-lg overflow-hidden animate-fadeIn">
+          {/* Now Serving Highlight Header */}
+          <div className="bg-slate-900 text-white p-6 -m-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                {t('patientQueue.yourToken')}
+              <span className="text-xs uppercase tracking-widest text-teal-400 font-bold block mb-1">
+                {t('patientQueue.nowServing')}
               </span>
-              <div className="text-3xl font-extrabold text-teal-900">
-                {activeQueue.searchedToken}
-              </div>
-            </div>
-            <div>
-              {getStatusBadge(activeQueue.status)}
-            </div>
-          </div>
-
-          {/* Metrics Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <div className="flex items-center text-slate-500 text-xs font-medium mb-1">
-                <Users className="w-4 h-4 mr-1 text-teal-600" />
-                <span>{t('patientQueue.patientsAhead')}</span>
-              </div>
-              <div className="text-2xl font-bold text-slate-900">
-                {activeQueue.patientsAhead}
+              <div className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-white">
+                {activeQueue.nowServing}
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <div className="flex items-center text-slate-500 text-xs font-medium mb-1">
-                <Clock className="w-4 h-4 mr-1 text-teal-600" />
-                <span>{t('patientQueue.estimatedWait')}</span>
-              </div>
-              <div className="text-2xl font-bold text-slate-900">
-                ~{activeQueue.estimatedWaitMins} <span className="text-sm font-normal text-slate-500">{t('patientQueue.mins')}</span>
-              </div>
+            <div className="text-right">
+              <span className="text-xs text-slate-400 block">{activeQueue.doctor}</span>
+              <span className="text-xs font-medium text-teal-300">{activeQueue.department} • Room 101</span>
             </div>
           </div>
 
-          {/* Department / Doctor Info */}
-          <div className="p-4 rounded-xl bg-teal-50/60 border border-teal-100 text-xs text-teal-900 space-y-1">
-            <p><strong>{t('patientQueue.department')}:</strong> {activeQueue.department}</p>
-            <p><strong>{t('patientQueue.doctor')}:</strong> {activeQueue.doctor}</p>
-            <p className="text-[11px] text-teal-700 pt-1">
-              * Wait times are estimates based on actual consultation durations and check-in times.
-            </p>
+          {/* Searched Patient Status Box */}
+          <div className="pt-4 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+              <div>
+                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
+                  {t('patientQueue.yourToken')}
+                </span>
+                <div className="text-3xl font-extrabold text-slate-900 font-mono mt-0.5">
+                  {activeQueue.searchedToken}
+                </div>
+              </div>
+
+              <div>
+                {getStatusBadge(activeQueue.status)}
+              </div>
+            </div>
+
+            {/* Metrics: Patients Ahead & Estimated Wait */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+                <Users className="w-5 h-5 text-teal-600 mx-auto mb-1" />
+                <span className="text-xs text-slate-500 font-medium">{t('patientQueue.patientsAhead')}</span>
+                <div className="text-2xl font-extrabold text-slate-900 mt-1">
+                  {activeQueue.patientsAhead}
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+                <Clock className="w-5 h-5 text-teal-600 mx-auto mb-1" />
+                <span className="text-xs text-slate-500 font-medium">{t('patientQueue.estimatedWait')}</span>
+                <div className="text-2xl font-extrabold text-slate-900 mt-1">
+                  ~{activeQueue.estimatedWaitMins} {t('common.mins')}
+                </div>
+              </div>
+            </div>
+
+            {/* Approaching Turn Alert Banner */}
+            <div className="p-4 bg-teal-50 border border-teal-200 rounded-xl flex items-start space-x-3 text-teal-900 text-sm">
+              <Bell className="w-5 h-5 text-teal-700 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold block">{t('patientQueue.turnAlert')}</span>
+                <span className="text-teal-800 text-xs mt-0.5 block">
+                  Please proceed towards waiting room 101. Your token will be announced shortly on the clinic display and speakers.
+                </span>
+              </div>
+            </div>
+
+            {/* Footer Hint */}
+            <div className="flex items-center justify-between text-xs text-slate-400 pt-2">
+              <div className="flex items-center space-x-1">
+                <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                <span>Live connection active</span>
+              </div>
+              <span>Aarogyam Community Clinic</span>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      ) : (
+        /* Empty State */
+        <Card className="border-slate-200 py-12 px-6 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center mx-auto mb-3">
+            <Search className="w-6 h-6" />
+          </div>
+          <CardTitle className="text-lg font-bold text-slate-800">
+            No Token Currently Selected
+          </CardTitle>
+          <CardDescription className="text-sm text-slate-500 max-w-sm mx-auto mt-1.5">
+            Enter your token sequence number (e.g., <span className="font-semibold text-slate-700">A-14</span>) or booking reference above to track live progress, estimated wait, and room calls.
+          </CardDescription>
+        </Card>
+      )}
     </div>
   );
 }
