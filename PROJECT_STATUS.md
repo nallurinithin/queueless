@@ -10,7 +10,7 @@ V1 --- single-clinic pilot.
 
 ## Current milestone
 
-M7 --- Localization & Assisted On-Site Flows (Ready for Gate Review).
+M8 --- Hardening & End-to-End System Integration (Ready for Gate Review).
 
 ## Milestone board
 
@@ -24,8 +24,8 @@ M7 --- Localization & Assisted On-Site Flows (Ready for Gate Review).
 | **M5 Payments** | **Completed** | Verified webhooks, idempotency, late payment reconciliation, refunds and 2-hour policy tested |
 | **M6 Notifications/estimates** | **Completed** | Outbox pattern, retry backoff, dead-letter recovery, doctor-segmented wait estimates & approaching alerts tested |
 | **M7 Localization/accessibility** | **Completed** | English/Hindi/Telugu, strict Punjabi exclusion, assisted walk-in & check-in, ARIA live regions & voice audio tested |
-| M8 Hardening | In progress | Integration, E2E, security and failure tests pass |
-| M9 Deployment | Not started | Reproducible deployment, backups, monitoring and rollback tested |
+| **M8 Hardening** | **Completed** | Full end-to-end simulated lifecycle, clinical safety lock, RBAC boundaries, OTP rate limit and security hardening pass |
+| M9 Deployment | In progress | Reproducible deployment, backups, monitoring and rollback tested |
 | M10 Pilot | Not started | Clinic onboarding and pilot acceptance documented |
 
 ## Latest verified state
@@ -35,8 +35,9 @@ M7 --- Localization & Assisted On-Site Flows (Ready for Gate Review).
 - **Git**: 2.53.0
 - **MongoDB**: 8.3.2 (Local ping { ok: 1 }; Atlas cluster Cluster0 available)
 - **Client Build**: Vite production build succeeded (`371.11 kB` JS / `39.50 kB` CSS in 3.16s)
-- **Tests**: 79/79 passing across the full stack
-  - Backend: 67/67 passing across 12 test suites:
+- **Tests**: 89/89 passing across the full stack
+  - Backend: 77/77 passing across 13 test suites:
+    * `test/e2e-hardening.test.js` (10 tests: complete end-to-end patient OTP -> family member request -> receptionist slot allocation -> 5-min hold -> payment checkout & webhook confirmation -> on-site check-in -> token issue -> doctor callNext -> consultation safety lock blocking interruption -> consultation completion -> RBAC boundary rejection -> 60s OTP rate limiting)
     * `test/notifications.test.js` (9 tests: outbox pattern PENDING enqueue, worker loop delivery to DELIVERED, retry with exponential backoff on transient failure, dead letter handling on 3 attempts, manual staff re-queue to PENDING, dynamic wait estimation using observed doctor consultation times, approaching turn alert trigger when <=2 patients ahead or <=15 mins wait, deduplication strictly suppressing duplicate alerts to max 1 per visit, staff outbox monitoring)
     * `test/payments.test.js` (11 tests: ₹100 deposit order creation during 5-minute hold, 400 error on expired hold, HMAC-SHA256 signature verification & forgery rejection, successful confirmation transitioning to PAID, late payment reconciliation guard preventing silent overbooking, 401 on invalid webhook signature, payment.captured webhook dispatch, webhook event idempotency guard against duplicate replay, cancellation > 2h full refund of ₹100, cancellation <= 2h strictly ₹0 refund per disclosed policy, staff reconciliation workflow)
     * `test/queue.test.js` (10 tests: patient self-check-in with booking reference, check-in idempotency, receptionist walk-in FIFO token with ₹0 deposit, 20-concurrency monotonic token uniqueness without collision, callNext transitions, clinical safety guard blocking interruption of active consultations with 409 conflict, completeConsultation, skip/recall workflow, privacy-preserving public display with zero PII, live token tracking)
