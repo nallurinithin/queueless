@@ -126,3 +126,4 @@ export async function requirePatientAuth(req, res, next) {
     next(err);
   }
 }
+

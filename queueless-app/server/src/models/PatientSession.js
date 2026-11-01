@@ -55,3 +55,4 @@ const patientSessionSchema = new mongoose.Schema(
 patientSessionSchema.index({ sessionTokenHash: 1, expiresAt: 1, revokedAt: 1 });
 
 export const PatientSession = mongoose.model('PatientSession', patientSessionSchema);
+

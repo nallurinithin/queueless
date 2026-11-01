@@ -315,3 +315,4 @@ export const patientAuthService = {
     await PatientSession.updateOne({ sessionTokenHash: tokenHash }, { revokedAt: new Date() });
   },
 };
+

@@ -10,3 +10,6 @@ export * from './PatientSession.js';
 export * from './AuditLog.js';
 export * from './Department.js';
 export * from './Doctor.js';
+export * from './Appointment.js';
+export * from './SlotHold.js';
+export * from './DoctorSchedule.js';

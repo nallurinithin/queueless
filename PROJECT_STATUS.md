@@ -10,7 +10,7 @@ V1 --- single-clinic pilot.
 
 ## Current milestone
 
-M2 --- Authentication, Clinic Configuration & Identity Foundations (Ready for Gate Review).
+M3 --- Scheduling, Appointments & Family Engine (Ready for Gate Review).
 
 ## Milestone board
 
@@ -19,7 +19,7 @@ M2 --- Authentication, Clinic Configuration & Identity Foundations (Ready for Ga
 | **M0 Environment/repository** | **Completed** | Toolchain, repo, local DB and env verified |
 | **M1 Foundation/UI** | **Completed** | Responsive shell, role-aware navbar, and unified staff login reviewed |
 | **M2 Identity/clinic/RBAC** | **Completed** | Bootstrap CLI, staff lifecycle, unified login, persistent patient sessions, and RBAC pass |
-| M3 Scheduling/appointments | Not started | Slot allocation and concurrent booking tests pass |
+| **M3 Scheduling/appointments** | **Completed** | 50-concurrency hold test, returning patient reuse, family booking, and duplicate warnings pass |
 | M4 Queue engine | Not started | Queue transitions, token uniqueness and realtime recovery pass |
 | M5 Payments | Not started | Verified webhooks, idempotency, refunds and reconciliation tested |
 | M6 Notifications/estimates | Not started | Outbox/retry and estimate behaviour tested |
@@ -35,15 +35,17 @@ M2 --- Authentication, Clinic Configuration & Identity Foundations (Ready for Ga
 - **Git**: 2.53.0
 - **MongoDB**: 8.3.2 (Local ping { ok: 1 }; Atlas cluster Cluster0 available)
 - **Client Build**: Vite production build succeeded (`371.11 kB` JS / `39.50 kB` CSS in 3.16s)
-- **Tests**: 38/38 passing
-  - Backend: 30/30 passing across 7 test suites:
+- **Tests**: 45/45 passing across the full stack
+  - Backend: 37/37 passing across 9 test suites:
+    * `test/concurrency.test.js` (1 test: **50 concurrent requests for 1 slot** — exactly 1 succeeds, 49 receive 409 conflict, zero overbooking)
+    * `test/appointments.test.js` (6 tests: Self booking, new family member booking, returning patient ID reuse, household appointment retrieval, receptionist allocation with 5-minute hold, duplicate candidate check with warnings)
     * `test/health.test.js` (3 tests)
     * `test/db.test.js` (1 test)
     * `test/models.test.js` (6 tests)
-    * `test/bootstrap.test.js` (2 tests: first initialization & duplicate prevention)
-    * `test/staff-auth.test.js` (8 tests: unified login, invitations, password privacy, activation, deactivation)
-    * `test/patient-auth.test.js` (6 tests: OTP throttling, persistent cookies, session refresh, family profiles, logout)
-    * `test/rbac.test.js` (4 tests: unauthenticated 401, receptionist privilege denial 403, owner admin access 200)
+    * `test/bootstrap.test.js` (2 tests)
+    * `test/staff-auth.test.js` (8 tests)
+    * `test/patient-auth.test.js` (6 tests)
+    * `test/rbac.test.js` (4 tests)
   - Frontend: 8/8 passing across 2 test suites:
     * `test/localization.test.jsx` (5 tests)
     * `test/layout.test.jsx` (3 tests)

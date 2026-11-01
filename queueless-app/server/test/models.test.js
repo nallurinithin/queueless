@@ -130,3 +130,4 @@ describe('M2 Core Data Models & Schema Invariants', () => {
     expect(audit.schema.paths.createdAt).toBeDefined();
   });
 });
+

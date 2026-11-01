@@ -36,3 +36,4 @@ const bookingContactSchema = new mongoose.Schema(
 bookingContactSchema.index({ clinicId: 1, normalizedPhone: 1 }, { unique: true });
 
 export const BookingContact = mongoose.model('BookingContact', bookingContactSchema);
+

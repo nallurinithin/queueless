@@ -47,3 +47,4 @@ const patientSchema = new mongoose.Schema(
 patientSchema.index({ clinicId: 1, fullName: 1 });
 
 export const Patient = mongoose.model('Patient', patientSchema);
+

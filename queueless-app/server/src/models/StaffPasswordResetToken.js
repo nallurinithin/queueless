@@ -38,3 +38,4 @@ const staffPasswordResetTokenSchema = new mongoose.Schema(
 staffPasswordResetTokenSchema.index({ tokenHash: 1, expiresAt: 1 });
 
 export const StaffPasswordResetToken = mongoose.model('StaffPasswordResetToken', staffPasswordResetTokenSchema);
+

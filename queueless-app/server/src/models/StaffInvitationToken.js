@@ -46,3 +46,4 @@ const staffInvitationTokenSchema = new mongoose.Schema(
 staffInvitationTokenSchema.index({ tokenHash: 1, expiresAt: 1 });
 
 export const StaffInvitationToken = mongoose.model('StaffInvitationToken', staffInvitationTokenSchema);
+

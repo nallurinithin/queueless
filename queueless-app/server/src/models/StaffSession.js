@@ -46,3 +46,4 @@ const staffSessionSchema = new mongoose.Schema(
 staffSessionSchema.index({ sessionTokenHash: 1, expiresAt: 1, revokedAt: 1 });
 
 export const StaffSession = mongoose.model('StaffSession', staffSessionSchema);
+

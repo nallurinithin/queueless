@@ -126,3 +126,4 @@ describe('Patient Phone OTP & Persistent Session API (/api/v1/patient/auth)', ()
     expect(checkRes.body.authenticated).toBe(false);
   });
 });
+

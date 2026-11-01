@@ -42,3 +42,4 @@ const doctorSchema = new mongoose.Schema(
 doctorSchema.index({ clinicId: 1, staffUserId: 1 }, { unique: true });
 
 export const Doctor = mongoose.model('Doctor', doctorSchema);
+

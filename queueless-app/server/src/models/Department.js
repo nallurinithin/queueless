@@ -35,3 +35,4 @@ const departmentSchema = new mongoose.Schema(
 departmentSchema.index({ clinicId: 1, name: 1 }, { unique: true });
 
 export const Department = mongoose.model('Department', departmentSchema);
+

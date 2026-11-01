@@ -66,3 +66,4 @@ router.patch('/settings', requireStaffAuth, requireRole(STAFF_ROLES.CLINIC_OWNER
 });
 
 export default router;
+

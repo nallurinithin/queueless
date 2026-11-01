@@ -46,3 +46,4 @@ const patientContactLinkSchema = new mongoose.Schema(
 patientContactLinkSchema.index({ clinicId: 1, bookingContactId: 1, patientId: 1 }, { unique: true });
 
 export const PatientContactLink = mongoose.model('PatientContactLink', patientContactLinkSchema);
+

@@ -75,3 +75,4 @@ staffUserSchema.index({ clinicId: 1, email: 1 }, { unique: true });
 staffUserSchema.index({ clinicId: 1, role: 1 });
 
 export const StaffUser = mongoose.model('StaffUser', staffUserSchema);
+

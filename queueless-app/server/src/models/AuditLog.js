@@ -51,3 +51,4 @@ const auditLogSchema = new mongoose.Schema(
 auditLogSchema.index({ clinicId: 1, action: 1, createdAt: -1 });
 
 export const AuditLog = mongoose.model('AuditLog', auditLogSchema);
+
