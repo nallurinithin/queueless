@@ -10,15 +10,15 @@ V1 --- single-clinic pilot.
 
 ## Current milestone
 
-M1 --- Foundation and UI (Ready for UI Walkthrough Gate Review).
+M2 --- Authentication, Clinic Configuration & Identity Foundations (Ready for Gate Review).
 
 ## Milestone board
 
 | Milestone | Status | Exit gate |
 | :--- | :--- | :--- |
 | **M0 Environment/repository** | **Completed** | Toolchain, repo, local DB and env verified |
-| **M1 Foundation/UI** | **Completed** | Responsive shell and design system reviewed |
-| M2 Identity/clinic/RBAC | Not started | Auth, roles, clinic scoping and audit tests pass |
+| **M1 Foundation/UI** | **Completed** | Responsive shell, role-aware navbar, and unified staff login reviewed |
+| **M2 Identity/clinic/RBAC** | **Completed** | Bootstrap CLI, staff lifecycle, unified login, persistent patient sessions, and RBAC pass |
 | M3 Scheduling/appointments | Not started | Slot allocation and concurrent booking tests pass |
 | M4 Queue engine | Not started | Queue transitions, token uniqueness and realtime recovery pass |
 | M5 Payments | Not started | Verified webhooks, idempotency, refunds and reconciliation tested |
@@ -35,9 +35,18 @@ M1 --- Foundation and UI (Ready for UI Walkthrough Gate Review).
 - **Git**: 2.53.0
 - **MongoDB**: 8.3.2 (Local ping { ok: 1 }; Atlas cluster Cluster0 available)
 - **Client Build**: Vite production build succeeded (`371.11 kB` JS / `39.50 kB` CSS in 3.16s)
-- **Tests**: 12/12 passing
-  - Backend: 4/4 passing (Health check, API info, 404 handler, MongoDB ping)
-  - Frontend: 8/8 passing (Language default, Hindi/Telugu switching, Punjabi exclusion, fallback, shell routing, role-aware navbar, unified staff login without role dropdown)
+- **Tests**: 38/38 passing
+  - Backend: 30/30 passing across 7 test suites:
+    * `test/health.test.js` (3 tests)
+    * `test/db.test.js` (1 test)
+    * `test/models.test.js` (6 tests)
+    * `test/bootstrap.test.js` (2 tests: first initialization & duplicate prevention)
+    * `test/staff-auth.test.js` (8 tests: unified login, invitations, password privacy, activation, deactivation)
+    * `test/patient-auth.test.js` (6 tests: OTP throttling, persistent cookies, session refresh, family profiles, logout)
+    * `test/rbac.test.js` (4 tests: unauthenticated 401, receptionist privilege denial 403, owner admin access 200)
+  - Frontend: 8/8 passing across 2 test suites:
+    * `test/localization.test.jsx` (5 tests)
+    * `test/layout.test.jsx` (3 tests)
 - **Documentation Updated**:
   - Centralized Account Management, Patient Identity Permanence, Shared Contact Numbers for Family Members, HttpOnly Persistent OTP Sessions, and Milestone M2/M3 requirements mapped across all 13 reference documents in `QueueLess_Antigravity_Documentation/`.
 - **UI Refinements Applied**:

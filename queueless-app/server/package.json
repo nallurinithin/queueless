@@ -11,6 +11,7 @@
     "lint": "eslint src/ --ext .js",
     "test": "cross-env NODE_ENV=test vitest run",
     "test:watch": "cross-env NODE_ENV=test vitest",
+    "bootstrap:owner": "node src/scripts/bootstrap-owner.js",
     "seed": "node src/scripts/seed.js",
     "seed:reset": "node src/scripts/seed-reset.js"
   },

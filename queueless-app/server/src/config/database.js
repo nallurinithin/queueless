@@ -10,10 +10,14 @@ import { logger } from '../shared/logger.js';
 
 /**
  * Connect to MongoDB.
- * @param {string} uri - MongoDB connection string
+ * @param {string} [uri] - MongoDB connection string
  * @returns {Promise<typeof mongoose>}
  */
-export async function connectDatabase(uri) {
+export async function connectDatabase(uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/queueless_dev') {
+  if (mongoose.connection.readyState === 1) {
+    return mongoose;
+  }
+
   mongoose.connection.on('connected', () => {
     logger.info('Mongoose connected to MongoDB');
   });
@@ -27,7 +31,6 @@ export async function connectDatabase(uri) {
   });
 
   return mongoose.connect(uri, {
-    // Mongoose 8 uses the new driver defaults; these are explicit for clarity
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
   });
@@ -37,6 +40,11 @@ export async function connectDatabase(uri) {
  * Disconnect from MongoDB — used in tests and graceful shutdown.
  */
 export async function disconnectDatabase() {
-  await mongoose.disconnect();
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+  }
 }
 
+// Aliases for convenience
+export const connectDB = connectDatabase;
+export const disconnectDB = disconnectDatabase;

@@ -5,6 +5,10 @@
  */
 
 import { Router } from 'express';
+import staffAuthRoutes from './staffAuthRoutes.js';
+import staffManagementRoutes from './staffManagementRoutes.js';
+import patientAuthRoutes from './patientAuthRoutes.js';
+import clinicRoutes from './clinicRoutes.js';
 
 const router = Router();
 
@@ -17,5 +21,10 @@ router.get('/', (_req, res) => {
   });
 });
 
-export default router;
+// v1 routes
+router.use('/v1/staff/auth', staffAuthRoutes);
+router.use('/v1/staff', staffManagementRoutes);
+router.use('/v1/patient/auth', patientAuthRoutes);
+router.use('/v1/clinic', clinicRoutes);
 
+export default router;
