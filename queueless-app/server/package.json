@@ -13,6 +13,7 @@
     "test:watch": "cross-env NODE_ENV=test vitest",
     "bootstrap:owner": "node src/scripts/bootstrap-owner.js",
     "seed": "node src/scripts/seed.js",
+    "seed:pilot": "node src/scripts/seed-pilot.js",
     "seed:reset": "node src/scripts/seed-reset.js"
   },
   "dependencies": {

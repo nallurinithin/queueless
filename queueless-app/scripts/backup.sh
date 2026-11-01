@@ -15,3 +15,4 @@ echo "    Archive:    ${ARCHIVE_FILE}"
 mongodump --uri="${DB_URI}" --archive="${ARCHIVE_FILE}" --gzip
 
 echo "==> Backup Succeeded! $(ls -lh "${ARCHIVE_FILE}")"
+

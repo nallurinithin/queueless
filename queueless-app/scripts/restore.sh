@@ -22,3 +22,4 @@ echo "    Target:  ${DB_URI}"
 mongorestore --uri="${DB_URI}" --archive="${ARCHIVE_FILE}" --gzip --drop
 
 echo "==> Restore Completed Successfully!"
+

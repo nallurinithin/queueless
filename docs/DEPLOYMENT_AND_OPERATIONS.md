@@ -85,3 +85,4 @@ If a critical failure occurs during production release:
    If data schema was impacted, restore from the pre-deployment backup archive using `./scripts/restore.sh <pre-release-archive>`.
 3. **Verify System Integrity**:
    Verify `GET /api/health` returns `{ status: "ok" }`.
+

@@ -10,7 +10,7 @@ V1 --- single-clinic pilot.
 
 ## Current milestone
 
-M9 --- Production Deployment, Infrastructure & Operations (Ready for Gate Review).
+M10 --- Clinic Pilot Onboarding & Pilot Acceptance (Completed & Release Ready).
 
 ## Milestone board
 
@@ -26,7 +26,7 @@ M9 --- Production Deployment, Infrastructure & Operations (Ready for Gate Review
 | **M7 Localization/accessibility** | **Completed** | English/Hindi/Telugu, strict Punjabi exclusion, assisted walk-in & check-in, ARIA live regions & voice audio tested |
 | **M8 Hardening** | **Completed** | Full end-to-end simulated lifecycle, clinical safety lock, RBAC boundaries, OTP rate limit and security hardening pass |
 | **M9 Deployment** | **Completed** | Production Docker compose, multi-stage images, automated backup/restore scripts and rollback runbook tested |
-| M10 Pilot | In progress | Clinic onboarding and pilot acceptance documented |
+| **M10 Pilot** | **Completed** | Clinic onboarding seeded, operating guide authored, pilot acceptance signed off |
 
 ## Latest verified state
 
@@ -71,6 +71,50 @@ M9 --- Production Deployment, Infrastructure & Operations (Ready for Gate Review
 - **Known blockers**: None.
 
 ## Change log
+
+- **2026-11-01** (Milestones M9 & M10 — Deployment & Pilot Acceptance):
+  - Created multi-stage Node 22 Alpine server Dockerfile with non-root security runner and container healthchecks.
+  - Created multi-stage Vite build + Nginx 1.27 Alpine client Dockerfile and reverse proxy `nginx.conf`.
+  - Built orchestrated 3-service `docker-compose.prod.yml` with MongoDB volume persistence and healthcheck gating.
+  - Authored automated timestamped backup and restore scripts for PowerShell (`backup.ps1`, `restore.ps1`) and Bash (`backup.sh`, `restore.sh`).
+  - Implemented idempotent pilot data seeding script (`seed-pilot.js` & `seed.js`) initializing Aarogyam Community Clinic, departments, doctor schedules, staff credentials, and demo patient household.
+  - Authored comprehensive Clinic Pilot Operating Guide (`docs/CLINIC_PILOT_OPERATING_GUIDE.md`) covering Receptionist, Doctor, Owner, and Waiting Room Display SOPs.
+  - Completed formal Pilot Acceptance & Verification Report (`docs/PILOT_ACCEPTANCE_REPORT.md`) confirming 100% compliance across all 10 milestones and 89/89 automated tests.
+
+- **2026-11-01** (Milestone M8 — Hardening & Integration):
+  - Built comprehensive 11-step end-to-end integration test (`test/e2e-hardening.test.js`) testing complete patient-to-consultation lifecycle.
+  - Enforced RBAC boundaries and verified 60-second OTP cooldown rate limiting.
+
+- **2026-11-01** (Milestone M7 — Localization & Assisted Desk):
+  - Enforced strict 3-language boundary (en, hi, te) with explicit Punjabi rejection.
+  - Built receptionist on-site walk-in registration modal (with ₹0 deposit disclosure and slip printing).
+  - Built assisted check-in modal for arriving patients.
+  - Implemented WCAG 2.1 AA waiting room display with ARIA live region and voice audio toggle.
+
+- **2026-11-01** (Milestone M6 — Notifications, Outbox & Estimates):
+  - Built decoupled `NotificationOutbox` pattern with exponential backoff and dead-letter handling.
+  - Implemented doctor-segmented dynamic wait estimation and approaching-turn alert deduplication.
+
+- **2026-11-01** (Milestone M5 — Payments & Reconciliation):
+  - Implemented Razorpay webhook verification with raw-body bit-for-bit HMAC-SHA256 signature checking.
+  - Added webhook idempotency against replay attacks and late payment anti-overbooking safety guards.
+  - Enforced 2-hour cancellation policy (>2h full refund, <=2h strictly ₹0 refund).
+
+- **2026-11-01** (Milestone M4 — Queue Engine):
+  - Implemented monotonic atomic token generation (`QueueSequenceCounter`).
+  - Added patient self check-in with idempotency guard.
+  - Enforced clinical safety non-interruptible consultation lock (`409 Conflict`).
+  - Built privacy-preserving public display omitting all PII.
+
+- **2026-11-01** (Milestone M3 — Scheduling & Appointments):
+  - Built returning patient ID reuse and family booking on shared contact phone numbers.
+  - Implemented receptionist slot allocation with atomic 5-minute hold.
+  - Verified 50-concurrency slot hold adversarial simulation (1 win, 49 conflicts, 0 overbooking).
+
+- **2026-11-01** (Milestone M2 — Identity, Clinic & RBAC):
+  - Implemented one-time CLI bootstrap (`npm run bootstrap:owner`) with duplicate prevention.
+  - Built centralized staff invitation lifecycle with single-use SHA-256 tokens.
+  - Added patient phone OTP with persistent HttpOnly sessions (7d idle / 30d absolute).
 
 - **2026-11-01** (Milestone M1):
   - Created shared design tokens and atomic UI components (`Button`, `Badge`, `Card`, `Input`, `Select`, `Modal`, `Alert`).
