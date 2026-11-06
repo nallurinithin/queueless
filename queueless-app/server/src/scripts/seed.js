@@ -16,3 +16,4 @@ import { connectDB, disconnectDB } from '../config/database.js';
     process.exit(1);
   }
 })();
+

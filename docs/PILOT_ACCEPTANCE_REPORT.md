@@ -111,3 +111,4 @@ All acceptance gates for **QueueLess V1 (Aarogyam Community Clinic Pilot)** are 
 | **Clinical Director** | Dr. Patel | Clinic Owner, Aarogyam Community Clinic | **ACCEPTED** |
 | **Operations Lead** | Suresh Reddy | Head of Front Desk & Reception | **ACCEPTED** |
 | **Engineering Lead** | Antigravity Agent | Platform Architect & Engineering Agent | **ACCEPTED** |
+

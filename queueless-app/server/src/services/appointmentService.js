@@ -58,11 +58,19 @@ export const appointmentService = {
 
       if (selfLink) {
         actualPatientId = selfLink.patientId;
+        if (newPatientData?.fullName) {
+          await Patient.findByIdAndUpdate(actualPatientId, {
+            fullName: newPatientData.fullName.trim(),
+            ...(newPatientData.gender ? { gender: newPatientData.gender } : {}),
+            ...(newPatientData.age ? { age: Number(newPatientData.age) } : {}),
+          });
+        }
       } else {
         const selfPatient = await Patient.create({
           clinicId,
-          fullName: 'Primary Patient',
-          gender: 'OTHER',
+          fullName: newPatientData?.fullName?.trim() || 'Primary Patient',
+          gender: newPatientData?.gender || 'OTHER',
+          age: newPatientData?.age ? Number(newPatientData.age) : undefined,
         });
         await PatientContactLink.create({
           clinicId,
@@ -398,8 +406,8 @@ export const appointmentService = {
 
     await AuditLog.create({
       clinicId: appointment.clinicId,
-      actorId: staffUser._id,
-      actorRole: staffUser.role,
+      actorId: staffUser?._id || appointment.clinicId,
+      actorRole: staffUser?.role || 'STAFF',
       action: 'APPOINTMENT_CONFIRMED',
       entityType: 'Appointment',
       entityId: appointment._id.toString(),

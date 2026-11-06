@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { appointmentService } from '../services/appointmentService.js';
 import { requirePatientAuth } from '../shared/middleware/auth.js';
-import { Appointment } from '../models/index.js';
+import { Appointment, Department } from '../models/index.js';
 
 const router = Router();
 
@@ -13,13 +13,19 @@ router.post('/request', requirePatientAuth, async (req, res, next) => {
   try {
     const { patientTarget, patientId, newPatientData, departmentId, requestedWindow } = req.body;
 
+    let targetDeptId = departmentId;
+    if (!targetDeptId) {
+      const defaultDept = await Department.findOne({ clinicId: req.clinicId, active: true });
+      targetDeptId = defaultDept ? defaultDept._id : null;
+    }
+
     const appointment = await appointmentService.requestAppointment({
       clinicId: req.clinicId,
       bookingContactId: req.bookingContact._id,
       patientTarget,
       patientId,
       newPatientData,
-      departmentId,
+      departmentId: targetDeptId,
       requestedWindow,
     });
 

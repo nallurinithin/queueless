@@ -3,14 +3,19 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const AuthContext = createContext(null);
 
 export const ROLES = {
-  OWNER: 'owner',
-  RECEPTIONIST: 'receptionist',
-  DOCTOR: 'doctor',
+  OWNER: 'CLINIC_OWNER',
+  RECEPTIONIST: 'RECEPTIONIST',
+  DOCTOR: 'DOCTOR',
 };
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('queueless_staff_user');
+    // Purge any stale legacy localStorage so browser restarts start clean
+    try {
+      localStorage.removeItem('queueless_staff_user');
+    } catch {}
+
+    const saved = sessionStorage.getItem('queueless_staff_user');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -21,39 +26,83 @@ export function AuthProvider({ children }) {
     return null;
   });
 
-  const login = (emailOrRole, password = '') => {
-    let resolvedRole = ROLES.RECEPTIONIST;
-    let staffName = 'Priya (Receptionist)';
-    const identifier = (typeof emailOrRole === 'string' ? emailOrRole : '').toLowerCase();
-
-    if (identifier.includes('admin') || identifier.includes('owner') || identifier.includes('patel')) {
-      resolvedRole = ROLES.OWNER;
-      staffName = 'Dr. Patel (Clinic Owner)';
-    } else if (identifier.includes('doc') || identifier.includes('sharma') || identifier.includes('practitioner')) {
-      resolvedRole = ROLES.DOCTOR;
-      staffName = 'Dr. Sharma (Doctor)';
-    } else {
-      resolvedRole = ROLES.RECEPTIONIST;
-      staffName = 'Priya (Receptionist)';
-    }
-
-    const authData = {
-      id: `staff_${Date.now()}`,
-      name: staffName,
-      email: identifier.includes('@') ? identifier : `${resolvedRole}@aarogyam.clinic`,
-      role: resolvedRole,
-      clinicId: 'clinic_aarogyam_01',
-      token: `mock_session_${Date.now()}`,
-      loginAt: new Date().toISOString(),
+  // Verify backend session on startup
+  useEffect(() => {
+    const verifySession = async () => {
+      try {
+        const res = await fetch('/api/v1/staff/auth/me', {
+          credentials: 'include',
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.user) {
+          const authData = {
+            id: data.user.id,
+            name: data.user.name,
+            email: data.user.email,
+            role: data.user.role,
+            clinicId: data.user.clinicId,
+          };
+          setUser(authData);
+          sessionStorage.setItem('queueless_staff_user', JSON.stringify(authData));
+        } else {
+          setUser(null);
+          sessionStorage.removeItem('queueless_staff_user');
+        }
+      } catch {
+        // If server is not responding, do not retain unverified session
+      }
     };
-    setUser(authData);
-    localStorage.setItem('queueless_staff_user', JSON.stringify(authData));
-    return authData;
+
+    verifySession();
+  }, []);
+
+  const login = async (email, password) => {
+    try {
+      const res = await fetch('/api/v1/staff/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Invalid email or password.');
+      }
+
+      const authData = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role,
+        clinicId: data.user.clinicId,
+        redirectPath: data.redirectPath,
+        loginAt: new Date().toISOString(),
+      };
+
+      setUser(authData);
+      sessionStorage.setItem('queueless_staff_user', JSON.stringify(authData));
+      return { success: true, ...authData };
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch('/api/v1/staff/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // Ignore network errors on logout
+    }
     setUser(null);
-    localStorage.removeItem('queueless_staff_user');
+    sessionStorage.removeItem('queueless_staff_user');
+    try {
+      localStorage.removeItem('queueless_staff_user');
+    } catch {}
   };
 
   return (
@@ -70,4 +119,3 @@ export function useAuth() {
   }
   return context;
 }
-

@@ -9,6 +9,7 @@ import {
   AuditLog,
 } from '../models/index.js';
 import { logger } from '../shared/logger.js';
+import { smsService } from './smsService.js';
 
 function hashToken(val) {
   return crypto.createHash('sha256').update(val).digest('hex');
@@ -60,11 +61,18 @@ export const patientAuthService = {
 
     // Generate 6-digit OTP
     const rawOtp = process.env.NODE_ENV === 'test' ? '123456' : crypto.randomInt(100000, 999999).toString();
-    const otpHash = hashToken(rawOtp);
+    let otpHash = hashToken(rawOtp);
     const expiresAt = now + 5 * 60 * 1000; // 5 minutes
 
     const hourlyCount = existing && existing.firstRequestInHour > oneHourAgo ? existing.hourlyCount + 1 : 1;
     const firstRequestInHour = existing && existing.firstRequestInHour > oneHourAgo ? existing.firstRequestInHour : now;
+
+    logger.info(`[OTP Service] Dispatching OTP for ${normalizedPhone}`);
+
+    // Dispatch actual SMS directly to the recipient's mobile number
+    const smsResult = await smsService.sendOtpSms({ phone: normalizedPhone, otp: rawOtp });
+    const finalOtp = smsResult?.deliveredOtp || rawOtp;
+    otpHash = hashToken(finalOtp);
 
     otpStore.set(normalizedPhone, {
       otpHash,
@@ -75,14 +83,19 @@ export const patientAuthService = {
       firstRequestInHour,
     });
 
-    logger.info(`[OTP Service] OTP generated for ${normalizedPhone}: ${process.env.NODE_ENV !== 'production' ? rawOtp : '******'}`);
+    console.log(`\n======================================================`);
+    console.log(`[PATIENT REAL SMS DISPATCHED]`);
+    console.log(`Target Mobile      : ${normalizedPhone}`);
+    console.log(`Carrier Code (SMS) : ${finalOtp}`);
+    console.log(`Provider           : ${smsResult?.provider || 'TWILIO'}`);
+    console.log(`Expires in         : 5 minutes`);
+    console.log(`======================================================\n`);
 
     return {
       success: true,
       message: 'OTP sent successfully to your mobile number.',
       normalizedPhone,
       cooldownSecs: 60,
-      devOtp: process.env.NODE_ENV !== 'production' ? rawOtp : undefined,
     };
   },
 

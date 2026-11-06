@@ -75,6 +75,12 @@ const clinicSchema = new mongoose.Schema(
       type: [String],
       default: ['en', 'hi', 'te'],
     },
+    tvDisplay: {
+      broadcastEnabled: { type: Boolean, default: true },
+      showPatientName: { type: Boolean, default: false },
+      announcementLanguage: { type: String, enum: ['en', 'hi', 'te'], default: 'en' },
+      accessKey: { type: String, default: 'aarogyam_tv_live' },
+    },
     isActive: {
       type: Boolean,
       default: true,

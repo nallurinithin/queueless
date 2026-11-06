@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
+import { emailService } from './emailService.js';
 import {
+  Clinic,
   StaffUser,
   STAFF_ROLES,
   STAFF_STATUS,
@@ -8,6 +10,7 @@ import {
   StaffPasswordResetToken,
   StaffSession,
   AuditLog,
+  Doctor,
 } from '../models/index.js';
 
 function hashToken(rawToken) {
@@ -68,6 +71,21 @@ export const staffAuthService = {
       redirectPath = '/staff/owner';
     } else if (staffUser.role === STAFF_ROLES.DOCTOR) {
       redirectPath = '/staff/doctor';
+      const existingDoc = await Doctor.findOne({ clinicId: staffUser.clinicId, staffUserId: staffUser._id });
+      if (!existingDoc) {
+        await Doctor.create({
+          clinicId: staffUser.clinicId,
+          staffUserId: staffUser._id,
+          departmentIds: staffUser.departmentIds || [],
+          roomNumber: 'Room 101',
+          scheduleConfig: {
+            defaultSlotDurationMins: 15,
+            bufferMins: 0,
+            maxAppointmentsPerSlot: 1,
+          },
+          active: true,
+        });
+      }
     }
 
     return {
@@ -148,6 +166,20 @@ export const staffAuthService = {
       },
     });
 
+    // Dispatch invitation email via Gmail SMTP
+    try {
+      const clinic = await Clinic.findById(clinicId);
+      await emailService.sendStaffInvitation({
+        toEmail: normalizedEmail,
+        staffName: name,
+        role,
+        clinicName: clinic ? clinic.name : 'Aarogyam Community Clinic',
+        activationToken: rawToken,
+      });
+    } catch (e) {
+      // Email dispatch error logged in emailService
+    }
+
     return {
       staffUser: {
         id: staffUser._id.toString(),
@@ -201,6 +233,24 @@ export const staffAuthService = {
     staffUser.passwordHash = passwordHash;
     staffUser.status = STAFF_STATUS.ACTIVE;
     await staffUser.save();
+
+    if (staffUser.role === STAFF_ROLES.DOCTOR) {
+      const existingDoc = await Doctor.findOne({ clinicId: staffUser.clinicId, staffUserId: staffUser._id });
+      if (!existingDoc) {
+        await Doctor.create({
+          clinicId: staffUser.clinicId,
+          staffUserId: staffUser._id,
+          departmentIds: staffUser.departmentIds || [],
+          roomNumber: 'Room 101',
+          scheduleConfig: {
+            defaultSlotDurationMins: 15,
+            bufferMins: 0,
+            maxAppointmentsPerSlot: 1,
+          },
+          active: true,
+        });
+      }
+    }
 
     invitation.usedAt = new Date();
     await invitation.save();
@@ -259,6 +309,15 @@ export const staffAuthService = {
       action: 'STAFF_INVITATION_RESENT',
       entityType: 'StaffUser',
       entityId: staffUser._id.toString(),
+    });
+
+    const clinic = await Clinic.findById(clinicId);
+    await emailService.sendStaffInvitation({
+      toEmail: staffUser.email,
+      staffName: staffUser.name,
+      role: staffUser.role,
+      clinicName: clinic ? clinic.name : 'Aarogyam Community Clinic',
+      activationToken: rawToken,
     });
 
     return {

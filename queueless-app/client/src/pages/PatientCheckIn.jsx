@@ -1,38 +1,66 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from '../context/LanguageContext';
-import { Card, CardTitle, CardDescription } from '../components/ui/Card';
+import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Alert } from '../components/ui/Alert';
-import { QrCode, CheckCircle2, Clock, MapPin } from 'lucide-react';
+import { QrCode, CheckCircle2, Clock, ArrowRight, RefreshCw } from 'lucide-react';
 
 export function PatientCheckIn() {
   const { t } = useTranslation();
-  const [method, setMethod] = useState('reference');
-  const [inputVal, setInputVal] = useState('');
-  const [checkedIn, setCheckedIn] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryRef = new URLSearchParams(location.search).get('ref') || '';
+
+  const [reference, setReference] = useState(queryRef);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [tokenResult, setTokenResult] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!inputVal.trim()) return;
+    setErrorMsg('');
+    const cleanRef = reference.trim().toUpperCase();
+    if (!cleanRef) {
+      setErrorMsg('Please enter your 8-character booking reference.');
+      return;
+    }
 
-    // Simulate Check-In Result
-    const mockToken = `A-${Math.floor(10 + Math.random() * 80)}`;
-    setTokenResult({
-      token: mockToken,
-      department: 'General Medicine',
-      doctor: 'Dr. Sharma',
-      allocatedSlot: '10:30 AM',
-      checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    });
-    setCheckedIn(true);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/v1/queue/check-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ bookingReference: cleanRef }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Check-in failed. Please verify your reference or visit the front desk.');
+      }
+
+      setTokenResult({
+        token: data.data.token,
+        status: data.data.status,
+        estimatedWaitMins: data.data.estimatedWaitMins || 15,
+        alreadyCheckedIn: data.alreadyCheckedIn,
+        checkInTime: data.data.checkedInAt
+          ? new Date(data.data.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    } catch (err) {
+      setErrorMsg(err.message || 'Check-in failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="max-w-xl mx-auto py-8 px-4">
       <Card className="shadow-lg border-slate-200">
-        {!checkedIn ? (
+        {!tokenResult ? (
           <div>
             <div className="text-center mb-6">
               <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
@@ -42,54 +70,42 @@ export function PatientCheckIn() {
                 {t('checkIn.title')}
               </h2>
               <p className="text-sm text-slate-600 mt-1">
-                {t('checkIn.subtitle')}
+                Enter your booking reference or scan the on-site QR code to enter the live queue.
               </p>
             </div>
 
-            {/* Check-In Mode Tabs */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl mb-6">
-              <button
-                type="button"
-                onClick={() => setMethod('reference')}
-                className={`py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${
-                  method === 'reference'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {t('checkIn.methodReference')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setMethod('phone')}
-                className={`py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors ${
-                  method === 'phone'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {t('checkIn.methodPhone')}
-              </button>
-            </div>
+            {errorMsg && (
+              <Alert variant="danger" className="mb-4">
+                {errorMsg}
+              </Alert>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
-                label={method === 'reference' ? t('checkIn.methodReference') : t('checkIn.methodPhone')}
-                placeholder={method === 'reference' ? 'e.g. QL-784912' : 'e.g. 9876543210'}
+                label="Booking Reference *"
+                placeholder="e.g. QL-829104"
                 required
-                value={inputVal}
-                onChange={(e) => setInputVal(e.target.value)}
-                helperText="Check-in activates your priority window in the live queue."
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+                helperText="Check-in activates your priority window and issues your sequential queue token."
+                autoFocus
               />
 
-              <Button variant="primary" size="lg" type="submit" className="w-full">
-                {t('checkIn.btnCheckIn')}
+              <Button variant="primary" size="lg" type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Checking In...
+                  </>
+                ) : (
+                  t('checkIn.btnCheckIn')
+                )}
               </Button>
             </form>
 
             <div className="mt-6 pt-6 border-t border-slate-100 text-center">
               <p className="text-xs text-slate-500">
-                Need help checking in? Please step up to the clinic reception desk.
+                Need help checking in? Please step up to the clinic reception desk for assisted arrival.
               </p>
             </div>
           </div>
@@ -101,40 +117,50 @@ export function PatientCheckIn() {
 
             <div>
               <h3 className="text-2xl font-bold text-slate-900">
-                {t('checkIn.checkInSuccess')}
+                {tokenResult.alreadyCheckedIn ? 'Already Checked In' : t('checkIn.checkInSuccess')}
               </h3>
               <p className="text-sm text-slate-600 mt-1">
-                {t('checkIn.arriveNotice')}
+                {tokenResult.alreadyCheckedIn
+                  ? 'Your token is already active in the queue.'
+                  : t('checkIn.arriveNotice')}
               </p>
             </div>
 
-            <div className="bg-teal-50 border-2 border-teal-300 rounded-2xl p-6 max-w-xs mx-auto">
+            <div className="bg-teal-50 border-2 border-teal-300 rounded-2xl p-6 max-w-xs mx-auto shadow-xs">
               <div className="text-xs font-semibold uppercase tracking-wider text-teal-800">
                 {t('checkIn.tokenAssigned')}
               </div>
-              <div className="text-4xl font-extrabold text-teal-900 mt-2">
+              <div className="text-5xl font-black font-mono text-teal-900 mt-2">
                 {tokenResult.token}
               </div>
-              <div className="mt-3 text-xs text-teal-700 space-y-1 border-t border-teal-200/60 pt-2">
-                <p><strong>Department:</strong> {tokenResult.department}</p>
-                <p><strong>Doctor:</strong> {tokenResult.doctor}</p>
-                <p><strong>Check-in recorded:</strong> {tokenResult.checkInTime}</p>
+              <div className="mt-3 text-xs text-teal-700 space-y-1 border-t border-teal-200 pt-2">
+                <p><strong>Status:</strong> <span className="uppercase font-semibold">{tokenResult.status}</span></p>
+                <p><strong>Est. Wait:</strong> ~{tokenResult.estimatedWaitMins} mins</p>
+                <p><strong>Check-in Time:</strong> {tokenResult.checkInTime}</p>
               </div>
             </div>
 
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setCheckedIn(false);
-                setInputVal('');
-              }}
-            >
-              Check In Another Patient
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/queue?token=${tokenResult.token}`)}
+              >
+                <span>Track Live Queue</span>
+                <ArrowRight className="w-4 h-4 ml-1.5" />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setTokenResult(null);
+                  setReference('');
+                }}
+              >
+                Check In Another Patient
+              </Button>
+            </div>
           </div>
         )}
       </Card>
     </div>
   );
 }
-

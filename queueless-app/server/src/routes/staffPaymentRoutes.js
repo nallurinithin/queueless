@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { paymentService } from '../services/paymentService.js';
 import { requireStaffAuth, requireRole } from '../shared/middleware/auth.js';
 import { PaymentOrder, PAYMENT_STATUS, STAFF_ROLES, Appointment, APPOINTMENT_STATUS } from '../models/index.js';
 
@@ -76,6 +77,31 @@ router.post('/:id/reconcile', async (req, res, next) => {
     }
 
     res.status(400).json({ success: false, error: 'Invalid reconciliation action. Must be MANUAL_CONFIRM or REFUND.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+/**
+ * POST /api/v1/staff/payments/appointments/:id/cancel-refund
+ * Receptionist or Clinic Owner cancels appointment and processes refund
+ */
+router.post('/appointments/:id/cancel-refund', async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    const result = await paymentService.cancelAppointmentWithPolicy({
+      clinicId: req.clinicId,
+      appointmentId: req.params.id,
+      cancelledBy: 'STAFF',
+      reason: reason || 'Cancelled and refunded by clinic reception desk.',
+    });
+
+    res.json({
+      success: true,
+      message: 'Appointment cancelled and refund processed successfully.',
+      data: result,
+    });
   } catch (err) {
     next(err);
   }

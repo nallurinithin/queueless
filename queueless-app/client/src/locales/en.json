@@ -116,7 +116,8 @@
     "roleDoctor": "Doctor / Consultant",
     "roleOwner": "Clinic Owner / Administrator",
     "signInBtn": "Sign In to Portal",
-    "demoHint": "V1 Development Mode: Select a role to preview the dashboard."
+    "demoHint": "V1 Development Mode: Select a role to preview the dashboard.",
+    "login": "Sign In"
   },
   "dashboards": {
     "receptionist": {
@@ -141,11 +142,26 @@
     },
     "owner": {
       "title": "Clinic Administration & Settings",
-      "clinicOverview": "Clinic Performance & Status",
-      "departments": "Departments & Doctors",
-      "scheduleRules": "Doctor Schedules & Capacity",
-      "policies": "Deposit & Cancellation Policy",
-      "auditLogs": "Security & Action Audit Logs"
+      "subtitle": "Clinic Master Configuration, Policies, and Performance",
+      "tenant": "Tenant: Aarogyam Community Clinic (V1)",
+      "totalConsultations": "Total Consultations Today",
+      "averageWaitTime": "Average Wait Time",
+      "totalWalkIns": "Total Walk-Ins",
+      "onlineBookings": "Online Bookings",
+      "mins": "mins",
+      "targetWait": "Target: < 20 mins",
+      "ofVolume": "of volume",
+      "staffRosterTitle": "Staff Members & Doctors",
+      "manageStaffBtn": "Manage Staff",
+      "refreshStaff": "Refresh Staff",
+      "noStaffYet": "No additional staff added yet. Click \"Manage Staff\" to invite your first Doctor or Receptionist.",
+      "policiesTitle": "Deposit & Cancellation Policy",
+      "advanceDepositTitle": "Advance Deposit",
+      "advanceDepositDesc": "₹100 (Applicable to confirmed remote appointments only). Walk-ins pay ₹0 advance.",
+      "cancellationTitle": "Cancellation & Refund",
+      "cancellationDesc": "Full refund if cancelled >2 hours before appointment slot. 5-minute allocation hold window.",
+      "queueAlgorithmTitle": "Queue Algorithm",
+      "queueAlgorithmDesc": "FIFO baseline with bounded appointment priority within ±15 minutes of scheduled time."
     }
   },
   "display": {
@@ -158,4 +174,3 @@
     "privacyNotice": "To protect patient privacy, patient names are never displayed on public monitors."
   }
 }
-

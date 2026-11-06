@@ -170,3 +170,4 @@ All security-sensitive operations (owner bootstrap, staff invitation, role deact
 **QueueLess Pilot Operations Approved by:**  
 Dr. Patel, Medical Director & Clinic Owner, Aarogyam Community Clinic  
 Engineering Lead, QueueLess Platform
+

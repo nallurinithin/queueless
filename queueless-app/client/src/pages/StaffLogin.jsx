@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../context/LanguageContext';
-import { useAuth, ROLES } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { Card, CardTitle, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Lock, UserCheck, Shield, KeyRound } from 'lucide-react';
+import { Lock, Eye, EyeOff } from 'lucide-react';
 
 export function StaffLogin() {
   const { t } = useTranslation();
@@ -14,36 +14,33 @@ export function StaffLogin() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
+
     if (!email.trim() || !password.trim()) {
       setError('Please enter your email and password');
       return;
     }
 
-    const authUser = login(email, password);
+    setLoading(true);
 
-    switch (authUser.role) {
-      case ROLES.RECEPTIONIST:
-        navigate('/staff/receptionist');
-        break;
-      case ROLES.DOCTOR:
-        navigate('/staff/doctor');
-        break;
-      case ROLES.OWNER:
+    try {
+      const authUser = await login(email, password);
+      if (authUser?.redirectPath) {
+        navigate(authUser.redirectPath);
+      } else {
         navigate('/staff/owner');
-        break;
-      default:
-        navigate('/staff/receptionist');
+      }
+    } catch (err) {
+      setError(err.message || 'Invalid email or password.');
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const handleQuickFill = (demoEmail) => {
-    setEmail(demoEmail);
-    setPassword('password123');
-    setError('');
   };
 
   return (
@@ -71,77 +68,45 @@ export function StaffLogin() {
           <Input
             label={t('auth.emailOrPhone')}
             type="email"
-            placeholder="e.g. staff@aarogyam.clinic"
+            placeholder="e.g. staff@gmail.com"
             required
             value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setError('');
-            }}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
           />
 
-          <div>
+          <div className="relative">
             <Input
               label={t('auth.password')}
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               placeholder="••••••••••••"
               required
               value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError('');
-              }}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
             />
-            <div className="mt-1 text-right">
-              <span className="text-xs text-teal-700 hover:text-teal-800 cursor-pointer">
-                Forgot password? Contact Clinic Administrator
-              </span>
-            </div>
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
           </div>
 
-          <Button variant="primary" size="lg" type="submit" className="w-full">
-            <UserCheck className="w-4 h-4 mr-2" />
-            {t('auth.signInBtn')}
+          <Button variant="primary" size="lg" type="submit" className="w-full cursor-pointer" disabled={loading}>
+            {loading ? 'Authenticating...' : (t('auth.signInBtn') || 'Sign In')}
           </Button>
         </form>
 
-        <div className="mt-6 pt-5 border-t border-slate-100">
-          <div className="flex items-center justify-center text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3 space-x-1.5">
-            <Shield className="w-3.5 h-3.5 text-teal-600" />
-            <span>Development Mode: Quick Role Sign-in</span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => handleQuickFill('reception@aarogyam.clinic')}
-              className="p-2 rounded-lg border border-slate-200 hover:border-teal-500 hover:bg-teal-50/50 text-slate-700 text-center transition-colors cursor-pointer"
-            >
-              <div className="font-semibold text-teal-800">Receptionist</div>
-              <div className="text-[10px] text-slate-500 truncate">Priya</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickFill('dr.sharma@aarogyam.clinic')}
-              className="p-2 rounded-lg border border-slate-200 hover:border-teal-500 hover:bg-teal-50/50 text-slate-700 text-center transition-colors cursor-pointer"
-            >
-              <div className="font-semibold text-teal-800">Doctor</div>
-              <div className="text-[10px] text-slate-500 truncate">Dr. Sharma</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickFill('admin@aarogyam.clinic')}
-              className="p-2 rounded-lg border border-slate-200 hover:border-teal-500 hover:bg-teal-50/50 text-slate-700 text-center transition-colors cursor-pointer"
-            >
-              <div className="font-semibold text-teal-800">Administrator</div>
-              <div className="text-[10px] text-slate-500 truncate">Clinic Owner</div>
-            </button>
-          </div>
+        <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-500">
+          <p>
+            Secure, unified staff portal. Role permissions are enforced by the server after authentication.
+          </p>
         </div>
       </Card>
     </div>
   );
 }
-

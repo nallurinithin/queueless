@@ -47,6 +47,8 @@ Thumbs.db
 # --- Test artifacts ---
 playwright-report/
 test-results/
+scratch/
+**/scratch/
 
 # --- Private QueueLess development journal — NEVER COMMIT ---
 /decisions/

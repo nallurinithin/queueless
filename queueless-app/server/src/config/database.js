@@ -5,6 +5,7 @@
  * Logs connection events and handles disconnection gracefully.
  */
 
+import dns from 'node:dns';
 import mongoose from 'mongoose';
 import { logger } from '../shared/logger.js';
 
@@ -16,6 +17,12 @@ import { logger } from '../shared/logger.js';
 export async function connectDatabase(uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/queueless_dev') {
   if (mongoose.connection.readyState === 1) {
     return mongoose;
+  }
+
+  if (typeof uri === 'string' && uri.startsWith('mongodb+srv://')) {
+    try {
+      dns.setServers(['8.8.8.8', '1.1.1.1']);
+    } catch (e) {}
   }
 
   mongoose.connection.on('connected', () => {

@@ -57,7 +57,7 @@ describe('App Layout and Shell Routing', () => {
     expect(screen.queryByLabelText(/Role/i)).toBeNull();
 
     // Verify email and password inputs exist
-    expect(screen.getByPlaceholderText(/staff@aarogyam.clinic/i)).toBeDefined();
+    expect(screen.getByPlaceholderText(/staff@gmail\.com/i)).toBeDefined();
     expect(screen.getByPlaceholderText(/••••••••••••/i)).toBeDefined();
   });
 });

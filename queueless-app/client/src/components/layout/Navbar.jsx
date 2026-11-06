@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Clock, Calendar, CheckCircle2, UserCheck, Tv, LogOut } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, Clock, Calendar, CheckCircle2, UserCheck, Tv, LogOut, ArrowRight } from 'lucide-react';
 import { useTranslation } from '../../context/LanguageContext';
 import { useAuth, ROLES } from '../../context/AuthContext';
 import { LanguageSelector } from './LanguageSelector';
@@ -10,41 +10,46 @@ import { Button } from '../ui/Button';
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, logout, isAuthenticated } = useAuth();
 
-  // Public visitor links (shown only when no staff is logged in)
+  const handleLogout = async () => {
+    await logout();
+    setMobileMenuOpen(false);
+    navigate('/');
+  };
+
+  // Public visitor navigation links (default for patients & unauthenticated visitors)
   const publicLinks = [
     { to: '/', label: t('nav.home') },
     { to: '/book', label: t('nav.bookAppointment'), icon: Calendar },
     { to: '/queue', label: t('nav.liveQueue'), icon: Clock },
   ];
 
-  // Role-specific staff navigation links
+  // Role-specific staff navigation links (strictly for staff portal routes)
   const getStaffLinks = () => {
-    if (!user) return [];
+    if (!user) return publicLinks;
     switch (user.role) {
       case ROLES.RECEPTIONIST:
         return [
           { to: '/staff/receptionist', label: 'Reception Desk', icon: UserCheck },
-          { to: '/queue', label: t('nav.liveQueue'), icon: Clock },
+          { to: '/staff/queue', label: t('nav.liveQueue'), icon: Clock },
         ];
       case ROLES.DOCTOR:
         return [
           { to: '/staff/doctor', label: 'Doctor Console', icon: UserCheck },
-          { to: '/queue', label: t('nav.liveQueue'), icon: Clock },
+          { to: '/staff/queue', label: t('nav.liveQueue'), icon: Clock },
         ];
       case ROLES.OWNER:
         return [
           { to: '/staff/owner', label: 'Clinic Overview', icon: UserCheck },
-          { to: '/queue', label: t('nav.liveQueue'), icon: Clock },
+          { to: '/staff/queue', label: t('nav.liveQueue'), icon: Clock },
         ];
       default:
         return publicLinks;
     }
   };
-
-  const navLinks = isAuthenticated ? getStaffLinks() : publicLinks;
 
   const getDashboardLink = () => {
     if (!user) return '/staff/login';
@@ -59,6 +64,17 @@ export function Navbar() {
         return '/staff/login';
     }
   };
+
+  // The staff portal navbar is ONLY rendered when on staff portal routes (e.g. /staff/doctor, /staff/owner)
+  const isStaffRoute =
+    location.pathname.startsWith('/staff') &&
+    location.pathname !== '/staff/login' &&
+    location.pathname !== '/staff/activate';
+
+  const isStaffPortalActive = isAuthenticated && isStaffRoute;
+
+  // Active navigation links: public when on landing/booking, staff console when inside staff portal
+  const navLinks = isStaffPortalActive ? getStaffLinks() : publicLinks;
 
   const isActive = (path) => location.pathname === path;
 
@@ -104,16 +120,35 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-3">
             <LanguageSelector />
 
-            {isAuthenticated ? (
+            {isStaffPortalActive ? (
+              // Staff Portal Header Controls
               <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
                 <Link to={getDashboardLink()}>
                   <Badge variant="primary" size="lg" className="cursor-pointer hover:bg-teal-100">
                     <UserCheck className="w-3.5 h-3.5 mr-1" />
-                    {user.name}
+                    {user?.name}
                   </Badge>
                 </Link>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
+                  title={t('common.logout')}
+                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                  aria-label="Logout"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : isAuthenticated ? (
+              // Authenticated staff browsing public visitor pages: clean portal link + logout
+              <div className="flex items-center space-x-2">
+                <Link to={getDashboardLink()}>
+                  <Button variant="primary" size="sm" className="flex items-center gap-1.5 cursor-pointer">
+                    <span>{t('nav.staffPortal') || 'Staff Portal'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
+                </Link>
+                <button
+                  onClick={handleLogout}
                   title={t('common.logout')}
                   className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                   aria-label="Logout"
@@ -122,6 +157,7 @@ export function Navbar() {
                 </button>
               </div>
             ) : (
+              // Public visitor view: Staff Login button
               <Link to="/staff/login">
                 <Button variant="secondary" size="sm">
                   {t('common.login')}
@@ -163,22 +199,37 @@ export function Navbar() {
           ))}
 
           <div className="pt-3 mt-3 border-t border-slate-100 flex flex-col space-y-2">
-            {isAuthenticated ? (
+            {isStaffPortalActive ? (
               <>
                 <Link
                   to={getDashboardLink()}
                   onClick={() => setMobileMenuOpen(false)}
                   className="px-3 py-2 text-sm text-teal-700 font-medium"
                 >
-                  {t('nav.dashboard')} ({user.name})
+                  {t('nav.dashboard')} ({user?.name})
                 </Link>
                 <Button
                   variant="danger"
                   size="sm"
-                  onClick={() => {
-                    logout();
-                    setMobileMenuOpen(false);
-                  }}
+                  onClick={handleLogout}
+                >
+                  {t('common.logout')}
+                </Button>
+              </>
+            ) : isAuthenticated ? (
+              <>
+                <Link
+                  to={getDashboardLink()}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Button variant="primary" size="md" className="w-full">
+                    {t('nav.staffPortal') || 'Staff Portal'}
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
                 >
                   {t('common.logout')}
                 </Button>
@@ -196,4 +247,3 @@ export function Navbar() {
     </nav>
   );
 }
-

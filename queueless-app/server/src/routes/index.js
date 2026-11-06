@@ -30,20 +30,21 @@ router.get('/', (_req, res) => {
   });
 });
 
-// v1 routes
+// v1 routes - specific prefixes must come BEFORE general /v1/staff prefix
 router.use('/v1/staff/auth', staffAuthRoutes);
-router.use('/v1/staff', staffManagementRoutes);
 router.use('/v1/staff/appointments', staffAppointmentRoutes);
 router.use('/v1/staff/patients', staffAppointmentRoutes);
+router.use('/v1/staff/queue', staffQueueRoutes);
+router.use('/v1/staff/payments', staffPaymentRoutes);
+router.use('/v1/staff/notifications', staffNotificationRoutes);
+router.use('/v1/staff', staffManagementRoutes);
+
 router.use('/v1/patient/auth', patientAuthRoutes);
 router.use('/v1/clinic', clinicRoutes);
 router.use('/v1/appointments', appointmentRoutes);
 router.use('/v1/queue', queueRoutes);
-router.use('/v1/staff/queue', staffQueueRoutes);
 router.use('/v1/payments', paymentRoutes);
-router.use('/v1/staff/payments', staffPaymentRoutes);
 router.use('/v1/notifications', notificationRoutes);
-router.use('/v1/staff/notifications', staffNotificationRoutes);
 router.use('/v1/public', publicScheduleRoutes);
 
 export default router;

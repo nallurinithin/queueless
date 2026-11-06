@@ -27,14 +27,21 @@ export const paymentService = {
       throw err;
     }
 
-    if (appointment.status !== APPOINTMENT_STATUS.SLOT_HELD && appointment.status !== APPOINTMENT_STATUS.PENDING_REVIEW) {
+    if (appointment.status !== APPOINTMENT_STATUS.SLOT_HELD && appointment.status !== APPOINTMENT_STATUS.PENDING_REVIEW && appointment.status !== APPOINTMENT_STATUS.HOLD_EXPIRED) {
       const err = new Error(`Cannot initiate payment for appointment in status ${appointment.status}.`);
       err.statusCode = 400;
       throw err;
     }
 
     // Check if slot hold has expired
-    if (appointment.slotHoldExpiresAt && new Date(appointment.slotHoldExpiresAt) <= new Date()) {
+    if (
+      appointment.status === APPOINTMENT_STATUS.HOLD_EXPIRED ||
+      (appointment.slotHoldExpiresAt && new Date(appointment.slotHoldExpiresAt) <= new Date())
+    ) {
+      if (appointment.status === APPOINTMENT_STATUS.SLOT_HELD) {
+        appointment.status = APPOINTMENT_STATUS.HOLD_EXPIRED;
+        await appointment.save();
+      }
       const err = new Error('Slot hold window has expired. Please ask reception to re-allocate the slot.');
       err.statusCode = 400;
       throw err;
@@ -52,7 +59,39 @@ export const paymentService = {
     }
 
     const amountInPaise = depositAmount * 100;
-    const orderId = `order_ql_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    let orderId = `order_ql_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+
+    // Create genuine Razorpay order via Razorpay API if credentials configured
+    if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET && !RAZORPAY_KEY_ID.includes('placeholder')) {
+      try {
+        const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+        const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${auth}`,
+          },
+          body: JSON.stringify({
+            amount: amountInPaise,
+            currency: 'INR',
+            receipt: `rcpt_${appointment.bookingReference || appointment._id}`,
+            notes: {
+              appointmentId: appointment._id.toString(),
+              bookingReference: appointment.bookingReference || '',
+              clinicId: clinicId.toString(),
+            },
+          }),
+        });
+        const rzpData = await rzpRes.json();
+        if (rzpData && rzpData.id) {
+          orderId = rzpData.id;
+        } else {
+          logger.error('Razorpay order creation returned error:', rzpData);
+        }
+      } catch (err) {
+        logger.error('Failed to create Razorpay order online, fallback to local order:', err);
+      }
+    }
 
     // Create pending payment order
     const paymentOrder = await PaymentOrder.create({
@@ -347,6 +386,42 @@ export const paymentService = {
       paymentOrder.refundReason = reason || policyOutcome;
       paymentOrder.refundId = `ref_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
       paymentOrder.refundCompletedAt = new Date();
+
+      // Trigger official Razorpay refund if payment was made through Razorpay
+      if (
+        paymentOrder.providerPaymentId &&
+        paymentOrder.providerPaymentId.startsWith('pay_') &&
+        RAZORPAY_KEY_ID &&
+        RAZORPAY_KEY_SECRET &&
+        !RAZORPAY_KEY_ID.includes('placeholder')
+      ) {
+        try {
+          const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+          const refundRes = await fetch(
+            `https://api.razorpay.com/v1/payments/${paymentOrder.providerPaymentId}/refund`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Basic ${auth}`,
+              },
+              body: JSON.stringify({
+                amount: refundAmount * 100,
+                notes: {
+                  appointmentId: appointment._id.toString(),
+                  reason: reason || 'Clinic cancellation policy',
+                },
+              }),
+            }
+          );
+          const refundData = await refundRes.json();
+          if (refundData && refundData.id) {
+            paymentOrder.refundId = refundData.id;
+          }
+        } catch (rfErr) {
+          logger.error('Razorpay refund API call failed:', rfErr);
+        }
+      }
       await paymentOrder.save();
 
       appointment.paymentStatus = PAYMENT_STATUS.REFUNDED;

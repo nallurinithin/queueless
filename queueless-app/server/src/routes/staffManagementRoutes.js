@@ -1,12 +1,60 @@
 import { Router } from 'express';
 import { staffAuthService } from '../services/staffAuthService.js';
 import { requireStaffAuth, requireRole } from '../shared/middleware/auth.js';
-import { StaffUser, STAFF_ROLES, STAFF_STATUS, StaffInvitationToken } from '../models/index.js';
+import {
+  StaffUser,
+  STAFF_ROLES,
+  STAFF_STATUS,
+  StaffInvitationToken,
+  QueueEntry,
+  QUEUE_STATUS,
+  Department,
+} from '../models/index.js';
 
 const router = Router();
 
 // Protect all management endpoints to Clinic Owner only
 router.use(requireStaffAuth, requireRole(STAFF_ROLES.CLINIC_OWNER));
+
+/**
+ * GET /api/v1/staff/metrics
+ * Returns genuine, real-time daily metrics for the clinic owner dashboard
+ */
+router.get('/metrics', async (req, res, next) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const todayEntries = await QueueEntry.find({
+      clinicId: req.clinicId,
+      queueDate: today,
+    });
+
+    const totalConsultations = todayEntries.filter((e) => e.queueStatus === QUEUE_STATUS.COMPLETED).length;
+    const walkIns = todayEntries.filter((e) => e.entryType === 'WALK_IN').length;
+    const onlineBookings = todayEntries.filter((e) => e.entryType !== 'WALK_IN').length;
+
+    let avgWaitMins = 0;
+    const completed = todayEntries.filter((e) => e.completedAt && e.checkedInAt);
+    if (completed.length > 0) {
+      const totalWait = completed.reduce(
+        (sum, e) => sum + (new Date(e.servingAt || e.completedAt) - new Date(e.checkedInAt)),
+        0
+      );
+      avgWaitMins = Math.round(totalWait / (completed.length * 60000));
+    }
+
+    res.json({
+      success: true,
+      data: {
+        totalConsultationsToday: totalConsultations,
+        averageWaitTimeMins: avgWaitMins,
+        totalWalkIns: walkIns,
+        onlineBookings: onlineBookings,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /**
  * GET /api/v1/staff/members
@@ -43,7 +91,7 @@ router.get('/members', async (req, res, next) => {
  */
 router.post('/invitations', async (req, res, next) => {
   try {
-    const { name, email, role, phone, departmentIds } = req.body;
+    const { name, email, role, phone, departmentIds, departmentName } = req.body;
 
     if (!name || !email || !role) {
       return res.status(400).json({ success: false, error: 'Name, email, and role are required.' });
@@ -53,6 +101,24 @@ router.post('/invitations', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Only Doctor and Receptionist roles can be invited.' });
     }
 
+    let finalDeptIds = [];
+    if (role === STAFF_ROLES.DOCTOR) {
+      if (departmentName) {
+        const dept = await Department.findOne({
+          clinicId: req.clinicId,
+          name: new RegExp(`^${departmentName}$`, 'i'),
+        });
+        if (dept) {
+          finalDeptIds = [dept._id];
+        }
+      } else if (Array.isArray(departmentIds) && departmentIds.length > 0) {
+        finalDeptIds = departmentIds;
+      }
+    } else if (role === STAFF_ROLES.RECEPTIONIST) {
+      // Receptionist is clinic-wide across all departments
+      finalDeptIds = [];
+    }
+
     const result = await staffAuthService.inviteStaff({
       ownerUser: req.staffUser,
       clinicId: req.clinicId,
@@ -60,7 +126,7 @@ router.post('/invitations', async (req, res, next) => {
       email,
       role,
       phone,
-      departmentIds,
+      departmentIds: finalDeptIds,
     });
 
     res.status(201).json({
@@ -142,4 +208,3 @@ router.patch('/members/:id/status', async (req, res, next) => {
 });
 
 export default router;
-

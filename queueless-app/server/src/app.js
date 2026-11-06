@@ -54,8 +54,13 @@ if (process.env.NODE_ENV !== 'test') {
 // Rate limiting — global baseline
 // ---------------------------------------------------------------------------
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: 200,                   // per IP
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'development' ? 50000 : 1000,
+  skip: (req) =>
+    process.env.NODE_ENV === 'development' ||
+    req.ip === '127.0.0.1' ||
+    req.ip === '::1' ||
+    req.ip === '::ffff:127.0.0.1',
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again later.' },

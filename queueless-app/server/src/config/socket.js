@@ -38,3 +38,4 @@ export function getSocketIO() {
   return io;
 }
 
+export const getIO = getSocketIO;

@@ -11,6 +11,7 @@ import {
   BookingContact,
   PatientContactLink,
   AuditLog,
+  Clinic,
 } from '../models/index.js';
 import { getIO } from '../config/socket.js';
 import { logger } from '../shared/logger.js';
@@ -313,13 +314,19 @@ export const queueService = {
       details: { publicToken: nextPatient.publicToken, doctorId: doctorId.toString() },
     });
 
-    // Broadcast privacy-preserving call announcement
+    // Broadcast call announcement
     const doc = await Doctor.findById(doctorId).populate('staffUserId', 'name');
+    const patientDoc = await Patient.findById(nextPatient.patientId).select('fullName');
+    const clinic = await Clinic.findById(clinicId);
+    const showPatientName = Boolean(clinic?.tvDisplay?.showPatientName);
+
     this.broadcastQueueUpdate(clinicId, 'display:token_called', {
       token: nextPatient.publicToken,
+      patientName: showPatientName ? (patientDoc?.fullName || 'Patient') : undefined,
       roomNumber: doc?.roomNumber || '101',
       doctorName: doc?.staffUserId?.name || 'Practitioner',
       callCount: nextPatient.callCount,
+      announcementLanguage: clinic?.tvDisplay?.announcementLanguage || 'en',
     });
 
     return {
@@ -443,6 +450,9 @@ export const queueService = {
   async getWaitingRoomDisplay({ clinicId, date }) {
     const queueDate = date || getTodayString();
 
+    const clinic = await Clinic.findById(clinicId);
+    const showPatientName = Boolean(clinic?.tvDisplay?.showPatientName);
+
     const activeList = await QueueEntry.find({
       clinicId,
       queueDate,
@@ -453,10 +463,12 @@ export const queueService = {
         populate: { path: 'staffUserId', select: 'name' },
       })
       .populate('departmentId', 'name')
+      .populate('patientId', 'fullName')
       .sort({ calledAt: -1 });
 
     const nowServing = activeList.map((item) => ({
       token: item.publicToken,
+      patientName: showPatientName ? (item.patientId?.fullName || 'Patient') : undefined,
       roomNumber: item.doctorId?.roomNumber || '101',
       doctorName: item.doctorId?.staffUserId?.name || 'Dr. Practitioner',
       department: item.departmentId?.name || 'General',

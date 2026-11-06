@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { queueService } from '../services/queueService.js';
-import { Clinic, QueueEntry, QUEUE_STATUS } from '../models/index.js';
+import { Clinic, QueueEntry, QUEUE_STATUS, Appointment } from '../models/index.js';
 
 const router = Router();
 
@@ -50,10 +50,36 @@ router.get('/display', async (req, res, next) => {
     const clinicId = await getActiveClinicId();
     const { date } = req.query;
 
+    const clinic = await Clinic.findById(clinicId);
+    const tvDisplay = clinic?.tvDisplay || {
+      broadcastEnabled: true,
+      showPatientName: true,
+      announcementLanguage: 'en',
+    };
+
+    if (tvDisplay.broadcastEnabled === false) {
+      return res.json({
+        success: true,
+        data: {
+          broadcastEnabled: false,
+          clinicName: clinic?.name || 'Aarogyam Community Clinic',
+          nowServing: [],
+          upNext: [],
+          message: 'Waiting room TV display is currently offline.',
+        },
+      });
+    }
+
     const data = await queueService.getWaitingRoomDisplay({ clinicId, date });
     res.json({
       success: true,
-      data,
+      data: {
+        ...data,
+        broadcastEnabled: true,
+        showPatientName: tvDisplay.showPatientName,
+        announcementLanguage: tvDisplay.announcementLanguage || 'en',
+        clinicName: clinic?.name || 'Aarogyam Community Clinic',
+      },
     });
   } catch (err) {
     next(err);
@@ -67,20 +93,78 @@ router.get('/display', async (req, res, next) => {
 router.get('/track/:token', async (req, res, next) => {
   try {
     const clinicId = await getActiveClinicId();
-    const normalizedToken = req.params.token.toUpperCase().trim();
+    const query = req.params.token.toUpperCase().trim();
     const today = new Date().toISOString().split('T')[0];
 
-    const currentEntry = await QueueEntry.findOne({
+    let currentEntry = await QueueEntry.findOne({
       clinicId,
       queueDate: today,
-      publicToken: normalizedToken,
+      publicToken: query,
     }).populate({
       path: 'doctorId',
       populate: { path: 'staffUserId', select: 'name' },
     });
 
     if (!currentEntry) {
-      return res.status(404).json({ success: false, error: 'Token not found for today.' });
+      // Check if the query is a booking reference (e.g. QL-XXXXXX)
+      const appointment = await Appointment.findOne({
+        clinicId,
+        bookingReference: query,
+      }).populate('assignedDoctorId').populate({
+        path: 'assignedDoctorId',
+        populate: { path: 'staffUserId', select: 'name' },
+      });
+
+      if (appointment) {
+        currentEntry = await QueueEntry.findOne({
+          appointmentId: appointment._id,
+          queueDate: today,
+        }).populate({
+          path: 'doctorId',
+          populate: { path: 'staffUserId', select: 'name' },
+        });
+
+        if (!currentEntry) {
+          // Check if slot hold has expired
+          let currentStatus = appointment.status;
+          if (
+            currentStatus === 'SLOT_HELD' &&
+            appointment.slotHoldExpiresAt &&
+            new Date(appointment.slotHoldExpiresAt) <= new Date()
+          ) {
+            currentStatus = 'HOLD_EXPIRED';
+            Appointment.updateOne({ _id: appointment._id }, { $set: { status: 'HOLD_EXPIRED' } }).exec();
+          }
+
+          // Patient has an appointment record, but has not checked in today
+          return res.json({
+            success: true,
+            data: {
+              token: query,
+              appointmentId: appointment._id,
+              depositAmount: appointment.depositAmount || 100,
+              slotHeldUntil: appointment.slotHoldExpiresAt,
+              status: currentStatus === 'CONFIRMED' ? 'NOT_CHECKED_IN' : currentStatus,
+              nowServing: '—',
+              patientsAhead: 0,
+              estimatedWaitMins: 0,
+              doctorName: appointment.assignedDoctorId?.staffUserId?.name || 'Triage / Reception',
+              roomNumber: appointment.assignedDoctorId?.roomNumber || '101',
+              message: currentStatus === 'SLOT_HELD'
+                ? 'Your slot is held for 5 minutes. Please pay ₹100 deposit to secure your booking.'
+                : currentStatus === 'HOLD_EXPIRED'
+                ? 'Your 5-minute slot hold has expired. Please contact reception to re-allocate a time slot.'
+                : currentStatus === 'CONFIRMED'
+                ? 'Your appointment is confirmed. Please complete on-site check-in at reception or via QR code upon arrival.'
+                : 'Your appointment request is awaiting clinic review and slot allocation.',
+            },
+          });
+        }
+      }
+    }
+
+    if (!currentEntry) {
+      return res.status(404).json({ success: false, error: 'Token or booking reference not found for today.' });
     }
 
     // Calculate patients ahead in the same doctor queue
