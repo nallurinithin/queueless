@@ -4,6 +4,9 @@
 
 # --- Documentation reference folder (not part of the app) ---
 QueueLess_Antigravity_Documentation/
+docs/
+CONTRIBUTING.md
+PROJECT_STATUS.md
 
 # --- Dependencies ---
 node_modules/
