@@ -2,6 +2,9 @@
 
 > Intelligent, real-time clinic appointment coordination and queue management engineered for community clinics and outpatient healthcare practices.
 
+**🌐 Live Demo:** [https://queueless-clinic-aarogyam.onrender.com](https://queueless-clinic-aarogyam.onrender.com)
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-00c7b7?style=flat-square&logo=render&logoColor=white)](https://queueless-clinic-aarogyam.onrender.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js Version](https://img.shields.io/badge/Node.js-%3E%3D20.0.0-green.svg)](https://nodejs.org)
 [![Express](https://img.shields.io/badge/Express-5.1-lightgrey.svg)](https://expressjs.com)
