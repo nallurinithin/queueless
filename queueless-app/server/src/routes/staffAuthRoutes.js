@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { staffAuthService } from '../services/staffAuthService.js';
 import { requireStaffAuth } from '../shared/middleware/auth.js';
+import { staffLoginLimiter, staffForgotLimiter } from '../shared/middleware/rateLimiters.js';
 
 const router = Router();
 
@@ -9,7 +10,7 @@ const router = Router();
  * Unified login endpoint. Accepts { email, password }.
  * Returns user profile, role, redirect path, and sets HttpOnly cookie.
  */
-router.post('/login', async (req, res, next) => {
+router.post('/login', staffLoginLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const userAgent = req.headers['user-agent'] || '';
@@ -59,6 +60,13 @@ router.post('/logout', requireStaffAuth, async (req, res, next) => {
  * Returns current authenticated staff user
  */
 router.get('/me', requireStaffAuth, async (req, res) => {
+  let doctorId = null;
+  if (req.staffUser.role === 'DOCTOR') {
+    const { Doctor } = await import('../models/index.js');
+    const doc = await Doctor.findOne({ clinicId: req.clinicId, staffUserId: req.staffUser._id });
+    doctorId = doc?._id?.toString() || null;
+  }
+
   res.json({
     success: true,
     user: {
@@ -68,6 +76,7 @@ router.get('/me', requireStaffAuth, async (req, res) => {
       role: req.staffUser.role,
       clinicId: req.staffUser.clinicId.toString(),
       status: req.staffUser.status,
+      doctorId,
     },
   });
 });
@@ -90,7 +99,7 @@ router.post('/activate', async (req, res, next) => {
  * POST /api/v1/staff/auth/forgot-password
  * Accepts { email }
  */
-router.post('/forgot-password', async (req, res, next) => {
+router.post('/forgot-password', staffForgotLimiter, async (req, res, next) => {
   try {
     const { email } = req.body;
     const result = await staffAuthService.requestPasswordReset(email);

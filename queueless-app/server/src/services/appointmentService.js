@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import {
+  Clinic,
   Appointment,
   APPOINTMENT_STATUS,
   PAYMENT_STATUS,
@@ -129,7 +130,25 @@ export const appointmentService = {
 
     const publicReferenceHash = hashReference(bookingReference);
 
-    // 3. Create appointment in PENDING_REVIEW
+    // 3. Snapshot authoritative clinic financial and cancellation policies at booking time
+    const clinic = await Clinic.findById(clinicId);
+    const depositEnabled = clinic?.depositPolicy?.enabled !== false;
+    const configuredDepositAmount = depositEnabled ? (clinic?.depositPolicy?.defaultAmount ?? 100) : 0;
+    const deadlineHours = clinic?.cancellationPolicy?.deadlineHours ?? 2;
+    const refundPctBefore = clinic?.cancellationPolicy?.refundPercentageBeforeDeadline ?? (clinic?.cancellationPolicy?.refundPercentage ?? 100);
+    const refundPctAfter = clinic?.cancellationPolicy?.refundPercentageAfterDeadline ?? 0;
+
+    const policySnapshot = {
+      depositRequired: depositEnabled,
+      depositAmount: configuredDepositAmount,
+      cancellationDeadlineHours: deadlineHours,
+      refundPercentageBeforeDeadline: refundPctBefore,
+      refundPercentageAfterDeadline: refundPctAfter,
+      clinicCancellationRefundPercentage: 100,
+      capturedAt: new Date(),
+    };
+
+    // 4. Create appointment in PENDING_REVIEW with policy snapshot
     const appointment = await Appointment.create({
       clinicId,
       bookingReference,
@@ -139,8 +158,10 @@ export const appointmentService = {
       departmentId,
       requestedWindow,
       status: APPOINTMENT_STATUS.PENDING_REVIEW,
-      paymentStatus: PAYMENT_STATUS.NOT_REQUIRED,
-      depositAmount: 120, // Configurable default
+      paymentStatus: depositEnabled ? PAYMENT_STATUS.PENDING : PAYMENT_STATUS.NOT_REQUIRED,
+      depositRequired: depositEnabled,
+      depositAmount: configuredDepositAmount,
+      policySnapshot,
     });
 
     await AuditLog.create({
@@ -168,6 +189,7 @@ export const appointmentService = {
   async allocateSlotAtomic({
     appointmentId,
     receptionistUser,
+    staffUser,
     doctorId,
     slotDate,
     startTime,
@@ -177,6 +199,14 @@ export const appointmentService = {
     if (!appointment) {
       const err = new Error('Appointment not found.');
       err.statusCode = 404;
+      throw err;
+    }
+
+    const callingStaff = receptionistUser || staffUser;
+    // Cross-Clinic Tenant Isolation Guard
+    if (callingStaff?.clinicId && !appointment.clinicId.equals(callingStaff.clinicId)) {
+      const err = new Error('Forbidden: You cannot access or modify appointments belonging to another clinic.');
+      err.statusCode = 403;
       throw err;
     }
 
@@ -198,6 +228,41 @@ export const appointmentService = {
     const now = new Date();
     const holdExpiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes strictly
 
+    // Ensure policy snapshot is preserved or established
+    if (!appointment.policySnapshot || !appointment.policySnapshot.capturedAt) {
+      const clinic = await Clinic.findById(clinicId);
+      const depositEnabled = clinic?.depositPolicy?.enabled !== false;
+      const configuredDepositAmount = depositEnabled ? (clinic?.depositPolicy?.defaultAmount ?? 100) : 0;
+      const hasExplicitDepositRequired = appointment.depositRequired !== undefined;
+      const isReq = hasExplicitDepositRequired ? appointment.depositRequired : depositEnabled;
+      const amt = (appointment.depositAmount !== undefined && appointment.depositAmount > 0)
+        ? appointment.depositAmount
+        : (isReq ? configuredDepositAmount : 0);
+
+      appointment.policySnapshot = {
+        depositRequired: isReq,
+        depositAmount: amt,
+        cancellationDeadlineHours: clinic?.cancellationPolicy?.deadlineHours ?? 2,
+        refundPercentageBeforeDeadline: clinic?.cancellationPolicy?.refundPercentageBeforeDeadline ?? (clinic?.cancellationPolicy?.refundPercentage ?? 100),
+        refundPercentageAfterDeadline: clinic?.cancellationPolicy?.refundPercentageAfterDeadline ?? 0,
+        clinicCancellationRefundPercentage: 100,
+        capturedAt: new Date(),
+      };
+      if (appointment.depositRequired === undefined) {
+        appointment.depositRequired = isReq;
+      }
+      if (!appointment.depositAmount) {
+        appointment.depositAmount = amt;
+      }
+    }
+
+    const requiresDeposit = appointment.depositRequired !== false &&
+      (appointment.policySnapshot?.depositRequired !== false) &&
+      (appointment.depositAmount > 0 || (appointment.policySnapshot?.depositAmount > 0));
+
+    const holdStatus = requiresDeposit ? SLOT_HOLD_STATUS.ACTIVE : SLOT_HOLD_STATUS.CONFIRMED;
+    const effectiveHoldExpiresAt = requiresDeposit ? holdExpiresAt : null;
+
     // Check if slot is already occupied
     const existingHold = await SlotHold.findOne({ capacityKey });
 
@@ -213,7 +278,7 @@ export const appointmentService = {
       }
 
       // Slot is either expired, released, or already belongs to this appointment -> refresh hold
-      existingHold.status = SLOT_HOLD_STATUS.ACTIVE;
+      existingHold.status = holdStatus;
       existingHold.appointmentId = appointment._id;
       existingHold.expiresAt = holdExpiresAt;
       existingHold.endTime = endTime;
@@ -229,7 +294,7 @@ export const appointmentService = {
           endTime,
           capacityKey,
           appointmentId: appointment._id,
-          status: SLOT_HOLD_STATUS.ACTIVE,
+          status: holdStatus,
           expiresAt: holdExpiresAt,
         });
       } catch (err) {
@@ -242,11 +307,18 @@ export const appointmentService = {
       }
     }
 
-    // Update appointment state
+    // Update appointment state (Slot-held if deposit required; confirmed immediately if no-deposit)
     appointment.assignedDoctorId = doctorId;
     appointment.allocatedSlot = { date: slotDate, startTime, endTime };
-    appointment.status = APPOINTMENT_STATUS.SLOT_HELD;
-    appointment.slotHoldExpiresAt = holdExpiresAt;
+    if (requiresDeposit) {
+      appointment.status = APPOINTMENT_STATUS.SLOT_HELD;
+      appointment.slotHoldExpiresAt = holdExpiresAt;
+      appointment.paymentStatus = PAYMENT_STATUS.PENDING;
+    } else {
+      appointment.status = APPOINTMENT_STATUS.CONFIRMED;
+      appointment.slotHoldExpiresAt = null;
+      appointment.paymentStatus = PAYMENT_STATUS.NOT_REQUIRED;
+    }
     appointment.version += 1;
     await appointment.save();
 
@@ -254,7 +326,7 @@ export const appointmentService = {
       clinicId,
       actorId: receptionistUser._id,
       actorRole: receptionistUser.role,
-      action: 'SLOT_ALLOCATED_HOLD_CREATED',
+      action: requiresDeposit ? 'SLOT_ALLOCATED_HOLD_CREATED' : 'SLOT_ALLOCATED_CONFIRMED_NO_DEPOSIT',
       entityType: 'Appointment',
       entityId: appointment._id.toString(),
       details: {
@@ -262,14 +334,16 @@ export const appointmentService = {
         slotDate,
         startTime,
         endTime,
-        holdExpiresAt,
+        requiresDeposit,
+        holdExpiresAt: effectiveHoldExpiresAt,
       },
     });
 
     return {
       appointment,
-      holdExpiresAt,
-      holdDurationSecs: 300,
+      holdExpiresAt: effectiveHoldExpiresAt,
+      holdDurationSecs: requiresDeposit ? 300 : 0,
+      requiresDeposit,
     };
   },
 
@@ -287,6 +361,14 @@ export const appointmentService = {
     if (!appointment) {
       const err = new Error('Appointment not found.');
       err.statusCode = 404;
+      throw err;
+    }
+
+    const callingStaff = staffUser;
+    // Cross-Clinic Tenant Isolation Guard
+    if (callingStaff?.clinicId && !appointment.clinicId.equals(callingStaff.clinicId)) {
+      const err = new Error('Forbidden: You cannot access or modify appointments belonging to another clinic.');
+      err.statusCode = 403;
       throw err;
     }
 
@@ -350,6 +432,13 @@ export const appointmentService = {
       throw err;
     }
 
+    const requiresDeposit = appointment.depositRequired !== false &&
+      (appointment.policySnapshot?.depositRequired !== false) &&
+      (appointment.depositAmount > 0 || (appointment.policySnapshot?.depositAmount > 0));
+
+    const holdStatus = requiresDeposit ? SLOT_HOLD_STATUS.ACTIVE : SLOT_HOLD_STATUS.CONFIRMED;
+    const effectiveHoldExpiresAt = requiresDeposit ? holdExpiresAt : null;
+
     await SlotHold.findOneAndUpdate(
       { capacityKey },
       {
@@ -360,7 +449,7 @@ export const appointmentService = {
         endTime: proposedSlot.endTime,
         capacityKey,
         appointmentId: appointment._id,
-        status: SLOT_HOLD_STATUS.ACTIVE,
+        status: holdStatus,
         expiresAt: holdExpiresAt,
       },
       { upsert: true, new: true }
@@ -368,13 +457,20 @@ export const appointmentService = {
 
     appointment.assignedDoctorId = proposedDoctorId;
     appointment.allocatedSlot = proposedSlot;
-    appointment.status = APPOINTMENT_STATUS.SLOT_HELD;
-    appointment.slotHoldExpiresAt = holdExpiresAt;
+    if (requiresDeposit) {
+      appointment.status = APPOINTMENT_STATUS.SLOT_HELD;
+      appointment.slotHoldExpiresAt = holdExpiresAt;
+      appointment.paymentStatus = PAYMENT_STATUS.PENDING;
+    } else {
+      appointment.status = APPOINTMENT_STATUS.CONFIRMED;
+      appointment.slotHoldExpiresAt = null;
+      appointment.paymentStatus = PAYMENT_STATUS.NOT_REQUIRED;
+    }
     appointment.alternativeProposal.acceptedAt = new Date();
     appointment.version += 1;
     await appointment.save();
 
-    return { appointment, holdExpiresAt };
+    return { appointment, holdExpiresAt: effectiveHoldExpiresAt, requiresDeposit };
   },
 
   /**
@@ -385,6 +481,14 @@ export const appointmentService = {
     if (!appointment) {
       const err = new Error('Appointment not found.');
       err.statusCode = 404;
+      throw err;
+    }
+
+    const callingStaff = staffUser;
+    // Cross-Clinic Tenant Isolation Guard
+    if (callingStaff?.clinicId && !appointment.clinicId.equals(callingStaff.clinicId)) {
+      const err = new Error('Forbidden: You cannot access or modify appointments belonging to another clinic.');
+      err.statusCode = 403;
       throw err;
     }
 
@@ -419,11 +523,32 @@ export const appointmentService = {
   /**
    * Cancel Appointment & Release Capacity
    */
-  async cancelAppointment({ appointmentId, cancelledBy, reason = '' }) {
+  async cancelAppointment({ appointmentId, clinicId, bookingContactId, staffUser, cancelledBy, reason = '' }) {
     const appointment = await Appointment.findById(appointmentId);
     if (!appointment) {
       const err = new Error('Appointment not found.');
       err.statusCode = 404;
+      throw err;
+    }
+
+    // Patient IDOR Protection Guard
+    if (cancelledBy === 'PATIENT' && bookingContactId) {
+      if (!appointment.bookingContactId || !appointment.bookingContactId.equals(bookingContactId)) {
+        const err = new Error('Forbidden: You are not authorized to cancel this appointment.');
+        err.statusCode = 403;
+        throw err;
+      }
+    }
+
+    // Cross-Clinic Tenant Isolation Guard
+    if (clinicId && !appointment.clinicId.equals(clinicId)) {
+      const err = new Error('Forbidden: You cannot access or modify appointments belonging to another clinic.');
+      err.statusCode = 403;
+      throw err;
+    }
+    if (staffUser?.clinicId && !appointment.clinicId.equals(staffUser.clinicId)) {
+      const err = new Error('Forbidden: You cannot access or modify appointments belonging to another clinic.');
+      err.statusCode = 403;
       throw err;
     }
 

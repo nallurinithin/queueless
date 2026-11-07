@@ -121,5 +121,36 @@ queueEntrySchema.index({ clinicId: 1, doctorId: 1, queueDate: 1, tokenSequence: 
 queueEntrySchema.index({ clinicId: 1, queueDate: 1, queueStatus: 1 });
 queueEntrySchema.index({ clinicId: 1, doctorId: 1, queueDate: 1, queueStatus: 1 });
 
+// Invariant 1: Doctor Room Exclusivity - At most ONE active patient in CALLED or SERVING status per doctor per date
+queueEntrySchema.index(
+  { clinicId: 1, doctorId: 1, queueDate: 1 },
+  {
+    name: 'unique_active_called_or_serving_per_doctor',
+    unique: true,
+    partialFilterExpression: { queueStatus: { $in: [QUEUE_STATUS.CALLED, QUEUE_STATUS.SERVING] } },
+  }
+);
+
+// Invariant 2: Appointment Check-In Idempotency - At most ONE active queue entry per appointment
+queueEntrySchema.index(
+  { clinicId: 1, appointmentId: 1 },
+  {
+    name: 'unique_active_appointment_queue_entry',
+    unique: true,
+    partialFilterExpression: {
+      appointmentId: { $type: 'objectId' },
+      queueStatus: {
+        $in: [
+          QUEUE_STATUS.REGISTERED,
+          QUEUE_STATUS.WAITING,
+          QUEUE_STATUS.CALLED,
+          QUEUE_STATUS.SERVING,
+          QUEUE_STATUS.COMPLETED,
+        ],
+      },
+    },
+  }
+);
+
 export const QueueEntry = mongoose.model('QueueEntry', queueEntrySchema);
 

@@ -11,6 +11,15 @@ import { logger } from '../logger.js';
 export function errorHandler(err, req, res, _next) {
   logger.error(`Unhandled error on ${req.method} ${req.originalUrl}:`, err);
 
+  // Convert Mongoose ObjectId CastError into safe 400 Bad Request
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      error: `Invalid identifier format for parameter: ${err.path || 'id'}`,
+      code: 'BAD_REQUEST',
+    });
+  }
+
   const status = err.status || err.statusCode || 500;
   const isProduction = process.env.NODE_ENV === 'production';
 

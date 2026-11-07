@@ -114,7 +114,12 @@ router.post('/walk-in', async (req, res, next) => {
 router.post('/call-next', async (req, res, next) => {
   try {
     const { doctorId } = req.body;
-    const targetDoctorId = doctorId || req.staffUser.doctorId;
+    let targetDoctorId = doctorId || req.staffUser.doctorId;
+
+    if (!targetDoctorId && req.staffUser.role === STAFF_ROLES.DOCTOR) {
+      const doc = await Doctor.findOne({ clinicId: req.clinicId, staffUserId: req.staffUser._id });
+      targetDoctorId = doc?._id;
+    }
 
     if (!targetDoctorId) {
       return res.status(400).json({ success: false, error: 'Doctor ID is required to call next patient.' });
@@ -141,9 +146,15 @@ router.post('/call-next', async (req, res, next) => {
  */
 router.post('/:id/serve', async (req, res, next) => {
   try {
+    let targetDoctorId = req.body.doctorId || req.staffUser.doctorId;
+    if (!targetDoctorId && req.staffUser.role === STAFF_ROLES.DOCTOR) {
+      const doc = await Doctor.findOne({ clinicId: req.clinicId, staffUserId: req.staffUser._id });
+      targetDoctorId = doc?._id;
+    }
+
     const queueEntry = await queueService.startServing({
       clinicId: req.clinicId,
-      doctorId: req.body.doctorId || req.staffUser.doctorId,
+      doctorId: targetDoctorId,
       queueEntryId: req.params.id,
     });
 
@@ -163,9 +174,15 @@ router.post('/:id/serve', async (req, res, next) => {
  */
 router.post('/:id/complete', async (req, res, next) => {
   try {
+    let targetDoctorId = req.body.doctorId || req.staffUser.doctorId;
+    if (!targetDoctorId && req.staffUser.role === STAFF_ROLES.DOCTOR) {
+      const doc = await Doctor.findOne({ clinicId: req.clinicId, staffUserId: req.staffUser._id });
+      targetDoctorId = doc?._id;
+    }
+
     const queueEntry = await queueService.completeConsultation({
       clinicId: req.clinicId,
-      doctorId: req.body.doctorId || req.staffUser.doctorId,
+      doctorId: targetDoctorId,
       queueEntryId: req.params.id,
     });
 

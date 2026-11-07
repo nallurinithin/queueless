@@ -13,11 +13,15 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import { sanitizeNoSql } from './shared/middleware/sanitize.js';
 import { errorHandler } from './shared/middleware/errorHandler.js';
 import { notFoundHandler } from './shared/middleware/notFoundHandler.js';
 import apiRouter from './routes/index.js';
 
 const app = express();
+
+// Trust reverse proxy (ALB / NGINX / Cloudflare)
+app.set('trust proxy', 1);
 
 // ---------------------------------------------------------------------------
 // Security middleware
@@ -42,6 +46,9 @@ app.use(
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 app.use(compression());
+
+// NoSQL query operator injection protection
+app.use(sanitizeNoSql);
 
 // ---------------------------------------------------------------------------
 // Request logging

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { patientAuthService } from '../services/patientAuthService.js';
 import { requirePatientAuth } from '../shared/middleware/auth.js';
+import { otpRequestLimiter, otpVerifyLimiter } from '../shared/middleware/rateLimiters.js';
 import { Clinic } from '../models/index.js';
 
 const router = Router();
@@ -17,7 +18,7 @@ async function getActiveClinicId() {
 /**
  * POST /api/v1/patient/auth/request-otp
  */
-router.post('/request-otp', async (req, res, next) => {
+router.post('/request-otp', otpRequestLimiter, async (req, res, next) => {
   try {
     const { phone } = req.body;
     const clinicId = await getActiveClinicId();
@@ -33,7 +34,7 @@ router.post('/request-otp', async (req, res, next) => {
  * POST /api/v1/patient/auth/verify-otp
  * Verifies OTP, establishes persistent session, and sets HttpOnly cookie
  */
-router.post('/verify-otp', async (req, res, next) => {
+router.post('/verify-otp', otpVerifyLimiter, async (req, res, next) => {
   try {
     const { phone, otp } = req.body;
     const clinicId = await getActiveClinicId();

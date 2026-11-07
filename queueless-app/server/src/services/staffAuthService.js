@@ -67,13 +67,14 @@ export const staffAuthService = {
     await staffUser.save();
 
     let redirectPath = '/staff/receptionist';
+    let doctorId = null;
     if (staffUser.role === STAFF_ROLES.CLINIC_OWNER) {
       redirectPath = '/staff/owner';
     } else if (staffUser.role === STAFF_ROLES.DOCTOR) {
       redirectPath = '/staff/doctor';
-      const existingDoc = await Doctor.findOne({ clinicId: staffUser.clinicId, staffUserId: staffUser._id });
+      let existingDoc = await Doctor.findOne({ clinicId: staffUser.clinicId, staffUserId: staffUser._id });
       if (!existingDoc) {
-        await Doctor.create({
+        existingDoc = await Doctor.create({
           clinicId: staffUser.clinicId,
           staffUserId: staffUser._id,
           departmentIds: staffUser.departmentIds || [],
@@ -86,6 +87,7 @@ export const staffAuthService = {
           active: true,
         });
       }
+      doctorId = existingDoc._id.toString();
     }
 
     return {
@@ -95,6 +97,7 @@ export const staffAuthService = {
         email: staffUser.email,
         role: staffUser.role,
         clinicId: staffUser.clinicId.toString(),
+        doctorId,
       },
       sessionToken: rawSessionToken,
       redirectPath,

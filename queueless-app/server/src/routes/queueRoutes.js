@@ -142,7 +142,7 @@ router.get('/track/:token', async (req, res, next) => {
             data: {
               token: query,
               appointmentId: appointment._id,
-              depositAmount: appointment.depositAmount || 100,
+              depositAmount: appointment.depositAmount !== undefined ? appointment.depositAmount : (appointment.policySnapshot?.depositAmount ?? 100),
               slotHeldUntil: appointment.slotHoldExpiresAt,
               status: currentStatus === 'CONFIRMED' ? 'NOT_CHECKED_IN' : currentStatus,
               nowServing: '—',
@@ -151,7 +151,7 @@ router.get('/track/:token', async (req, res, next) => {
               doctorName: appointment.assignedDoctorId?.staffUserId?.name || 'Triage / Reception',
               roomNumber: appointment.assignedDoctorId?.roomNumber || '101',
               message: currentStatus === 'SLOT_HELD'
-                ? 'Your slot is held for 5 minutes. Please pay ₹100 deposit to secure your booking.'
+                ? `Your slot is held for 5 minutes. Please pay ₹${appointment.depositAmount ?? appointment.policySnapshot?.depositAmount ?? 100} deposit to secure your booking.`
                 : currentStatus === 'HOLD_EXPIRED'
                 ? 'Your 5-minute slot hold has expired. Please contact reception to re-allocate a time slot.'
                 : currentStatus === 'CONFIRMED'

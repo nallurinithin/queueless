@@ -83,10 +83,14 @@ export const patientAuthService = {
       firstRequestInHour,
     });
 
+    // Sanitized audit log for SMS dispatch (CWE-532 prevention: NEVER leak plaintext OTPs to logs)
+    const maskedPhone = normalizedPhone.length > 7
+      ? `${normalizedPhone.slice(0, 3)}****${normalizedPhone.slice(-4)}`
+      : '***';
     console.log(`\n======================================================`);
     console.log(`[PATIENT REAL SMS DISPATCHED]`);
-    console.log(`Target Mobile      : ${normalizedPhone}`);
-    console.log(`Carrier Code (SMS) : ${finalOtp}`);
+    console.log(`Target Mobile      : ${maskedPhone}`);
+    console.log(`Carrier Code (SMS) : [REDACTED FOR SECURITY]`);
     console.log(`Provider           : ${smsResult?.provider || 'TWILIO'}`);
     console.log(`Expires in         : 5 minutes`);
     console.log(`======================================================\n`);
@@ -112,8 +116,10 @@ export const patientAuthService = {
     const normalizedPhone = normalizePhoneNumber(phone);
     const record = otpStore.get(normalizedPhone);
 
-    // Development bypass for fast reliable automated testing
-    const isDevBypass = process.env.NODE_ENV !== 'production' && otp === '123456';
+    // Development bypass strictly scoped to test runner or explicit environment flag
+    const isDevBypass =
+      (process.env.NODE_ENV === 'test' || process.env.ALLOW_DEV_OTP_BYPASS === 'true') &&
+      otp === '123456';
 
     if (!record && !isDevBypass) {
       const err = new Error('OTP expired or not requested. Please request a new OTP.');

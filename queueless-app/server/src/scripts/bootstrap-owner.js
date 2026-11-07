@@ -153,6 +153,13 @@ export async function bootstrapOwner({
         defaultAmount: 100,
         walkInRequiresDeposit: false,
       },
+      cancellationPolicy: {
+        deadlineHours: 2,
+        refundPercentageBeforeDeadline: 100,
+        refundPercentageAfterDeadline: 0,
+        clinicCancellationRefundPercentage: 100,
+        refundPercentage: 100,
+      },
       localesEnabled: ['en', 'hi', 'te'],
       isActive: true,
     });

@@ -127,3 +127,75 @@ export async function requirePatientAuth(req, res, next) {
   }
 }
 
+/**
+ * Require Either Authenticated Patient or Staff Session
+ */
+export async function requirePatientOrStaffAuth(req, res, next) {
+  try {
+    const rawStaffToken =
+      req.cookies?.queueless_staff_session ||
+      (req.headers.authorization?.startsWith('Bearer ') && req.headers['x-auth-type'] !== 'patient'
+        ? req.headers.authorization.slice(7)
+        : null);
+
+    if (rawStaffToken) {
+      const tokenHash = hashToken(rawStaffToken);
+      const session = await StaffSession.findOne({
+        sessionTokenHash: tokenHash,
+        expiresAt: { $gt: new Date() },
+        revokedAt: null,
+      });
+
+      if (session) {
+        const staffUser = await StaffUser.findById(session.staffUserId);
+        if (staffUser && staffUser.status === STAFF_STATUS.ACTIVE) {
+          req.staffUser = staffUser;
+          req.clinicId = staffUser.clinicId;
+          req.staffSession = session;
+          req.authRole = 'STAFF';
+          return next();
+        }
+      }
+    }
+
+    const rawPatientToken =
+      req.cookies?.queueless_patient_session ||
+      req.headers['x-patient-session'] ||
+      (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
+
+    if (rawPatientToken) {
+      const tokenHash = hashToken(rawPatientToken);
+      const session = await PatientSession.findOne({
+        sessionTokenHash: tokenHash,
+        expiresAt: { $gt: new Date() },
+        absoluteExpiresAt: { $gt: new Date() },
+        revokedAt: null,
+      });
+
+      if (session) {
+        const bookingContact = await BookingContact.findById(session.bookingContactId);
+        if (bookingContact) {
+          const rollingIdle = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+          session.expiresAt = rollingIdle < session.absoluteExpiresAt ? rollingIdle : session.absoluteExpiresAt;
+          session.lastActivityAt = new Date();
+          await session.save();
+
+          req.bookingContact = bookingContact;
+          req.clinicId = session.clinicId;
+          req.patientSession = session;
+          req.authRole = 'PATIENT';
+          return next();
+        }
+      }
+    }
+
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required. Please sign in or verify OTP.',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+

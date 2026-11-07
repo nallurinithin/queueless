@@ -118,6 +118,8 @@ router.post('/:id/cancel', requirePatientAuth, async (req, res, next) => {
     const { reason } = req.body;
     const appointment = await appointmentService.cancelAppointment({
       appointmentId: req.params.id,
+      clinicId: req.clinicId,
+      bookingContactId: req.bookingContact._id,
       cancelledBy: 'PATIENT',
       reason,
     });

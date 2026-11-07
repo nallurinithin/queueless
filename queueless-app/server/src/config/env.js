@@ -23,6 +23,15 @@ const envSchema = z.object({
 
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
+
+  // Razorpay Payment Gateway Mode & Credentials
+  RAZORPAY_MODE: z.enum(['test', 'live']).default('test'),
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  RAZORPAY_LIVE_KEY_ID: z.string().optional(),
+  RAZORPAY_LIVE_KEY_SECRET: z.string().optional(),
+  RAZORPAY_LIVE_WEBHOOK_SECRET: z.string().optional(),
 });
 
 let _env;

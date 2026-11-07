@@ -100,9 +100,22 @@ const appointmentSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    depositRequired: {
+      type: mongoose.Schema.Types.Mixed,
+      default: true,
+    },
     depositAmount: {
       type: Number,
       default: 0,
+    },
+    policySnapshot: {
+      depositRequired: { type: Boolean, default: true },
+      depositAmount: { type: Number, default: 100 },
+      cancellationDeadlineHours: { type: Number, default: 2 },
+      refundPercentageBeforeDeadline: { type: Number, default: 100 },
+      refundPercentageAfterDeadline: { type: Number, default: 0 },
+      clinicCancellationRefundPercentage: { type: Number, default: 100 },
+      capturedAt: { type: Date, default: null },
     },
     checkInAt: {
       type: Date,
