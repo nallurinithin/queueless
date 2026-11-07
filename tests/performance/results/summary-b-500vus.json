@@ -1,0 +1,153 @@
+{
+    "metrics": {
+        "vus_max": {
+            "value": 500,
+            "min": 500,
+            "max": 500
+        },
+        "http_req_waiting": {
+            "avg": 2485.6233282222224,
+            "min": 11.0666,
+            "med": 2764.2866,
+            "max": 3447.5333,
+            "p(90)": 3136.0859,
+            "p(95)": 3213.4231999999997
+        },
+        "iterations": {
+            "count": 2250,
+            "rate": 160.72693722034404
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 2250,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "data_sent": {
+            "rate": 70689.7785811426,
+            "count": 989579
+        },
+        "http_reqs": {
+            "count": 2250,
+            "rate": 160.72693722034404
+        },
+        "iteration_duration": {
+            "med": 2847.1608,
+            "max": 3529.0765,
+            "p(90)": 3219.9422,
+            "p(95)": 3297.5289049999997,
+            "avg": 2568.6517470666663,
+            "min": 93.5873
+        },
+        "http_req_duration": {
+            "avg": 2485.8336544444455,
+            "min": 11.4436,
+            "med": 2764.5217000000002,
+            "max": 3447.5333,
+            "p(90)": 3136.30762,
+            "p(95)": 3213.4231999999997,
+            "thresholds": {
+                "p(95)<800": true
+            }
+        },
+        "http_req_duration{expected_response:true}": {
+            "min": 11.4436,
+            "med": 2764.5217000000002,
+            "max": 3447.5333,
+            "p(90)": 3136.30762,
+            "p(95)": 3213.4231999999997,
+            "avg": 2485.8336544444455
+        },
+        "http_req_blocked": {
+            "p(95)": 1.1086299999999998,
+            "avg": 0.2488323555555557,
+            "min": 0,
+            "med": 0,
+            "max": 22.5707,
+            "p(90)": 1.03906
+        },
+        "checks": {
+            "passes": 4500,
+            "fails": 0,
+            "value": 1
+        },
+        "http_req_receiving": {
+            "med": 0,
+            "max": 2.0638,
+            "p(90)": 0.65602,
+            "p(95)": 0.9148999999999994,
+            "avg": 0.1774313333333334,
+            "min": 0
+        },
+        "appointment_creation_duration": {
+            "avg": 2485.8336544444455,
+            "min": 11.4436,
+            "med": 2764.5217000000002,
+            "max": 3447.5333,
+            "p(90)": 3136.30762,
+            "p(95)": 3213.4231999999997
+        },
+        "data_received": {
+            "count": 2954250,
+            "rate": 211034.46857031173
+        },
+        "vus": {
+            "value": 128,
+            "min": 120,
+            "max": 500
+        },
+        "http_req_tls_handshaking": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_sending": {
+            "max": 3.541,
+            "p(90)": 0,
+            "p(95)": 0.16780499999991674,
+            "avg": 0.03289488888888889,
+            "min": 0,
+            "med": 0
+        },
+        "custom_failure_rate": {
+            "passes": 0,
+            "fails": 2250,
+            "value": 0
+        },
+        "http_req_connecting": {
+            "med": 0,
+            "max": 22.5707,
+            "p(90)": 1.0094200000000002,
+            "p(95)": 1.0848849999999999,
+            "avg": 0.23077368888888886,
+            "min": 0
+        }
+    },
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "status is 201": {
+                    "fails": 0,
+                    "name": "status is 201",
+                    "path": "::status is 201",
+                    "id": "ec8c9afd59577ad0eb26fbf150ecf791",
+                    "passes": 2250
+                },
+                "has bookingReference": {
+                    "name": "has bookingReference",
+                    "path": "::has bookingReference",
+                    "id": "d93b4264fb1e3fadd2a348725c9aa501",
+                    "passes": 2250,
+                    "fails": 0
+                }
+            },
+        "name": ""
+    }
+}

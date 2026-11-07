@@ -1,0 +1,176 @@
+{
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "staff queue status is 200": {
+                    "name": "staff queue status is 200",
+                    "path": "::staff queue status is 200",
+                    "id": "e069d13c8a0ae137888892804e5c7049",
+                    "passes": 27,
+                    "fails": 0
+                },
+                "call-next status is 200 or 409": {
+                    "name": "call-next status is 200 or 409",
+                    "path": "::call-next status is 200 or 409",
+                    "id": "c4a3a8d433bc1f84f45bb91728b7ad72",
+                    "passes": 27,
+                    "fails": 0
+                },
+                "never 500 server error": {
+                    "passes": 27,
+                    "fails": 0,
+                    "name": "never 500 server error",
+                    "path": "::never 500 server error",
+                    "id": "41d364ebd6db837fee7fb7fdd578b31f"
+                }
+            },
+        "name": "",
+        "path": ""
+    },
+    "metrics": {
+        "http_reqs": {
+            "count": 74,
+            "rate": 4.8758506621560045
+        },
+        "http_req_tls_handshaking": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "vus_max": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+        },
+        "iteration_duration": {
+            "avg": 4539.622911111111,
+            "min": 930.3377,
+            "med": 4513.1847,
+            "max": 8243.5657,
+            "p(90)": 7005.765820000001,
+            "p(95)": 7571.7542
+        },
+        "call_next_duration": {
+            "p(95)": 2740.64689,
+            "avg": 924.5516481481483,
+            "min": 7.7699,
+            "med": 616.659,
+            "max": 2924.116,
+            "p(90)": 2593.30238
+        },
+        "http_req_duration{expected_response:true}": {
+            "max": 4782.4502,
+            "p(90)": 3954.68496,
+            "p(95)": 4267.48362,
+            "avg": 1934.3208052631576,
+            "min": 3.9846,
+            "med": 2128.4289
+        },
+        "http_req_connecting": {
+            "avg": 0.16149864864864863,
+            "min": 0,
+            "med": 0,
+            "max": 6.7146,
+            "p(90)": 0,
+            "p(95)": 0.5946499999999965
+        },
+        "http_req_receiving": {
+            "min": 0,
+            "med": 0.4116,
+            "max": 36.8321,
+            "p(90)": 8.03363,
+            "p(95)": 13.072919999999993,
+            "avg": 3.0892837837837837
+        },
+        "http_req_blocked": {
+            "avg": 0.18679864864864862,
+            "min": 0,
+            "med": 0,
+            "max": 6.7146,
+            "p(90)": 0.22645000000000093,
+            "p(95)": 0.8850049999999989
+        },
+        "http_req_failed": {
+            "passes": 17,
+            "fails": 57,
+            "value": 0.22972972972972974
+        },
+        "iterations": {
+            "count": 27,
+            "rate": 1.7790265929488123
+        },
+        "http_req_waiting": {
+            "avg": 1623.1003162162162,
+            "min": 3.9846,
+            "med": 851.9536499999999,
+            "max": 4774.9833,
+            "p(90)": 3887.95315,
+            "p(95)": 4195.408184999999
+        },
+        "clinical_safety_conflict_409": {
+            "count": 17,
+            "rate": 1.1201278548196225
+        },
+        "data_sent": {
+            "rate": 1286.9610153139333,
+            "count": 19532
+        },
+        "vus": {
+            "value": 1,
+            "min": 1,
+            "max": 10
+        },
+        "checks": {
+            "fails": 0,
+            "passes": 81,
+            "value": 1
+        },
+        "data_received": {
+            "count": 152713069,
+            "rate": 10062244.845993588
+        },
+        "http_req_duration": {
+            "med": 852.3271,
+            "max": 4782.4502,
+            "p(90)": 3890.99348,
+            "p(95)": 4200.1965199999995,
+            "avg": 1626.2852270270268,
+            "min": 3.9846,
+            "thresholds": {
+                "p(95)<600": true
+            }
+        },
+        "custom_failure_rate": {
+            "passes": 0,
+            "fails": 27,
+            "thresholds": {
+                "rate<0.02": false
+            },
+            "value": 0
+        },
+        "http_req_sending": {
+            "p(90)": 0,
+            "p(95)": 0.7941599999999999,
+            "avg": 0.09562702702702704,
+            "min": 0,
+            "med": 0,
+            "max": 2.4679
+        },
+        "staff_queue_duration": {
+            "med": 3463.8034,
+            "max": 4782.4502,
+            "p(90)": 4268.33214,
+            "p(95)": 4342.42547,
+            "avg": 3239.911385185185,
+            "min": 554.4939
+        },
+        "successful_call_count_200": {
+            "count": 10,
+            "rate": 0.6588987381291898
+        }
+    }
+}

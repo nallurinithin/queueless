@@ -107,6 +107,7 @@ describe('Milestone 6: Notifications, Outbox Engine & Wait Estimates', () => {
   it('2. Worker loop delivers pending notification and transitions status to DELIVERED', async () => {
     const processRes = await request(app)
       .post('/api/v1/notifications/process-outbox')
+      .set('x-worker-secret', 'queueless_worker_secret')
       .send({ batchSize: 5 })
       .expect(200);
 
@@ -133,6 +134,7 @@ describe('Milestone 6: Notifications, Outbox Engine & Wait Estimates', () => {
     // Process with simulated carrier failure
     const processRes = await request(app)
       .post('/api/v1/notifications/process-outbox')
+      .set('x-worker-secret', 'queueless_worker_secret')
       .send({ batchSize: 5, forceFailure: true })
       .expect(200);
 

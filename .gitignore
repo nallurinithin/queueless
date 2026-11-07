@@ -2,24 +2,37 @@
 # QueueLess — Root .gitignore
 # ============================================================
 
-# --- Documentation reference folder (not part of the app) ---
-QueueLess_Antigravity_Documentation/
-docs/
-CONTRIBUTING.md
-PROJECT_STATUS.md
+# --- Private documentation, journals, and progress trackers (Root only) ---
+/QueueLess_Antigravity_Documentation/
+/docs/
+/decisions/
+/PROJECT_STATUS.md
+/CONTRIBUTING.md
 
-# --- Dependencies ---
+# --- Binaries & Executable Tools ---
+/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# --- Dependencies & Directory Junctions ---
 node_modules/
 **/node_modules/
 
-# --- Build output ---
+# --- Build & Bundle Output ---
 dist/
+**/dist/
 build/
+**/build/
 coverage/
+**/coverage/
 .cache/
+**/.cache/
 .vite/
+**/.vite/
 
-# --- Environment and secrets ---
+# --- Environment Configuration & Secrets ---
 .env
 .env.*
 !.env.example
@@ -29,30 +42,46 @@ coverage/
 secrets/
 credentials/
 
-# --- Logs and local data ---
+# --- Logs & Runtime State ---
 *.log
 logs/
+**/logs/
 .tmp/
 temp/
+**/temp/
 uploads/
+**/uploads/
 storage/
+**/storage/
 data/
+**/data/
 mongodb/
 *.dump
 
-# --- IDE / OS ---
+# --- IDE, Editor & OS Artifacts ---
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 .idea/
 .vscode/*
 !.vscode/extensions.json
 
-# --- Test artifacts ---
+# --- Test Artifacts & Scratch Scripts ---
 playwright-report/
+**/playwright-report/
 test-results/
+**/test-results/
+.last-run.json
+**/.last-run.json
 scratch/
 **/scratch/
 
-# --- Private QueueLess development journal — NEVER COMMIT ---
-/decisions/
-
+# --- Always preserve core documentation & manifests ---
+!README.md
+!**/README.md
+!package.json
+!**/package.json
+!package-lock.json
+!**/package-lock.json

@@ -8,7 +8,8 @@
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38bdf8.svg)](https://tailwindcss.com)
 [![MongoDB](https://img.shields.io/badge/MongoDB-8-green.svg)](https://www.mongodb.com)
-[![Automated Tests](https://img.shields.io/badge/Tests-89%20Passing-brightgreen.svg)](https://vitest.dev)
+[![Automated Tests](https://img.shields.io/badge/Tests-165%20Passing-brightgreen.svg)](https://vitest.dev)
+[![E2E Tests](https://img.shields.io/badge/Playwright-9%20Passing-blue.svg)](https://playwright.dev)
 
 ---
 
@@ -357,32 +358,45 @@ npm run dev:client
 
 ### Automated Testing
 
-The codebase includes **89 automated unit, integration, and concurrency tests** across both frontend and backend.
+The codebase includes **165 automated tests** across 22 test files spanning unit, integration, concurrency, security, and real-browser Playwright end-to-end suites:
 
 ```bash
-# Run all tests (Server + Client)
+# 1. Run all Monorepo Vitest tests (Server + Client concurrently)
 npm test
 
-# Run Server tests only (77 tests across 13 suites)
+# 2. Run Server tests only (144 tests across 16 suites)
 npm run test:server
 
-# Run Client tests only (12 tests across 3 suites)
+# 3. Run Client tests only (12 tests across 3 suites)
 npm run test:client
+
+# 4. Run Playwright Multi-Role Browser E2E Tests (9 tests across 3 suites)
+cd tests/e2e
+npx playwright test
 ```
 
 #### Test Suite Breakdown:
-- **Backend Suites (77 passing):**
-  - `concurrency.test.js` (Adversarial race tests: 50 concurrent requests for 1 slot)
-  - `payments.test.js` (Razorpay order lifecycle, signatures, webhook idempotency, refunds)
-  - `queue.test.js` (FIFO ordering, emergency walk-in interleaving, clinical safety locks)
-  - `rbac.test.js` (Clinic isolation and role boundaries)
-  - `notifications.test.js` (Outbox delivery retries and deduplication)
-  - `patient-auth.test.js` (OTP generation, rate limits, 60s cooldowns)
-  - `appointments.test.js`, `staff-auth.test.js`, `bootstrap.test.js`, `models.test.js`, `db.test.js`, `health.test.js`, `e2e-hardening.test.js`
-- **Frontend Suites (12 passing):**
+- **Backend Vitest Suites (144 passing):**
+  - `concurrency-integrity.test.js` (Adversarial race tests: doctor room exclusivity, idempotent check-in, crash recovery via version CAS, consultation exclusivity, and 50-request slot allocations)
+  - `security-audit.test.js` (21 tests: SEC-01 through SEC-09, timing-safe authentication, session revocation, NoSQL sanitization, IDOR guards)
+  - `owner-policy-configuration.test.js` (20 tests: Deposit/cancellation policy configuration, snapshot immutability, ₹0 walk-in invariant)
+  - `payments.test.js` (16 tests: Razorpay order lifecycle, cryptographic HMAC signatures, webhook idempotency, refunds, Test/Live mode separation)
+  - `e2e-hardening.test.js` (13 tests: End-to-end clinic lifecycle integration, clinical safety locks)
+  - `concurrency.test.js` (1 test: 50 concurrent requests for 1 slot)
+  - `queue.test.js` (6 tests: FIFO ordering, emergency walk-in interleaving, clinical safety locks)
+  - `db.test.js` (5 tests: Database connectivity, admin ping, and fail-closed test database isolation guard)
+  - `rbac.test.js` (4 tests: Clinic isolation and role boundaries)
+  - `notifications.test.js` (9 tests: Outbox delivery retries and deduplication)
+  - `patient-auth.test.js` (6 tests: OTP generation, rate limits, 60s cooldowns)
+  - `appointments.test.js`, `staff-auth.test.js`, `bootstrap.test.js`, `models.test.js`, `health.test.js`
+- **Frontend Vitest Suites (12 passing):**
   - `assisted-desk.test.jsx` (Assisted check-in, walk-in token issuance, TV display ARIA live regions)
   - `localization.test.jsx` (Dynamic translation switching between English, Hindi, and Telugu)
   - `layout.test.jsx` (Navigation bar branding, auth shell routing, role navigation)
+- **Playwright Browser E2E Suites (9 passing across isolated browser contexts):**
+  - `role-workflows.spec.js` (4 tests: Patient, Receptionist, Doctor, and Clinic Owner journeys)
+  - `cross-role-journeys.spec.js` (4 tests: Remote booking full cycle, Walk-in flow, Timed cancellation, Owner policy changes & snapshot immutability)
+  - `multi-user-queue-flow.spec.js` (1 test: Concurrent 4-context real-time queue orchestration with waiting room TV)
 
 ---
 
@@ -408,6 +422,7 @@ npm run test:client
 | **Doctor-Department Filtering** | ✅ Implemented | Real-time dropdown filtering preventing empty department bookings |
 | **Waiting Room TV Lobby Display** | ✅ Implemented | Web Audio chime, multilingual voice synthesis, privacy toggles |
 | **Clinical Safety Lock** | ✅ Implemented | Prevents doctors from calling next patient mid-consultation |
+| **Concurrency & Storage Integrity** | ✅ Implemented | Tested under 300+ adversarial concurrent requests; doctor room exclusivity, idempotent check-in crash recovery via version CAS, consultation exclusivity |
 | **Trilingual Localization** | ✅ Implemented | Full English, Hindi, and Telugu UI coverage |
 | **Multi-Clinic SaaS Architecture** | ⏳ In Progress | V1 single-clinic operational; schema prepared for multi-tenant expansion |
 | **Direct WhatsApp Sandbox Dispatch** | 📋 Planned | Ready for Meta WhatsApp Business API integration |
@@ -427,7 +442,7 @@ Contributions are welcome! Please follow these steps:
    ```bash
    git commit -m "feat: description of feature"
    ```
-4. Verify that all 89 automated tests pass before opening a pull request:
+4. Verify that all 110 automated tests pass before opening a pull request:
    ```bash
    npm test
    ```

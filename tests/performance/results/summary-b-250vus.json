@@ -1,0 +1,153 @@
+{
+    "metrics": {
+        "data_received": {
+            "count": 2683772,
+            "rate": 203019.0161010934
+        },
+        "http_req_sending": {
+            "avg": 0.022250489236790617,
+            "min": 0,
+            "med": 0,
+            "max": 2.0272,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "appointment_creation_duration": {
+            "p(90)": 1691.78795,
+            "p(95)": 1759.0693749999998,
+            "avg": 1268.9714176125233,
+            "min": 7.2154,
+            "med": 1400.83305,
+            "max": 1951.938
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 2044,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "iterations": {
+            "count": 2044,
+            "rate": 154.6222514098198
+        },
+        "checks": {
+            "passes": 4088,
+            "fails": 0,
+            "value": 1
+        },
+        "http_req_receiving": {
+            "med": 0,
+            "max": 6.0005,
+            "p(90)": 0.7216600000000001,
+            "p(95)": 0.9395149999999998,
+            "avg": 0.20326575342465752,
+            "min": 0
+        },
+        "http_req_duration": {
+            "max": 1951.938,
+            "p(90)": 1691.78795,
+            "p(95)": 1759.0693749999998,
+            "avg": 1268.9714176125233,
+            "min": 7.2154,
+            "med": 1400.83305,
+            "thresholds": {
+                "p(95)<800": true
+            }
+        },
+        "http_req_connecting": {
+            "p(95)": 1.0102599999999997,
+            "avg": 0.11083214285714285,
+            "min": 0,
+            "med": 0,
+            "max": 5.5848,
+            "p(90)": 0.5233000000000001
+        },
+        "vus_max": {
+            "value": 250,
+            "min": 250,
+            "max": 250
+        },
+        "iteration_duration": {
+            "med": 1482.0294,
+            "max": 2032.6668,
+            "p(90)": 1772.6120500000002,
+            "p(95)": 1841.9510899999998,
+            "avg": 1351.2058170743653,
+            "min": 88.0782
+        },
+        "http_reqs": {
+            "count": 2044,
+            "rate": 154.6222514098198
+        },
+        "http_req_duration{expected_response:true}": {
+            "med": 1400.83305,
+            "max": 1951.938,
+            "p(90)": 1691.78795,
+            "p(95)": 1759.0693749999998,
+            "avg": 1268.9714176125233,
+            "min": 7.2154
+        },
+        "vus": {
+            "value": 95,
+            "min": 72,
+            "max": 250
+        },
+        "http_req_waiting": {
+            "avg": 1268.7459013698613,
+            "min": 6.215,
+            "med": 1400.6632,
+            "max": 1951.5773,
+            "p(90)": 1691.34844,
+            "p(95)": 1759.0693749999998
+        },
+        "custom_failure_rate": {
+            "fails": 2044,
+            "passes": 0,
+            "value": 0
+        },
+        "http_req_tls_handshaking": {
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0
+        },
+        "http_req_blocked": {
+            "avg": 0.12083816046966732,
+            "min": 0,
+            "med": 0,
+            "max": 6.1542,
+            "p(90)": 0.5357500000000001,
+            "p(95)": 1.0365049999999998
+        },
+        "data_sent": {
+            "count": 898967,
+            "rate": 68004.06139096452
+        }
+    },
+    "root_group": {
+        "checks": {
+            "status is 201": {
+                "path": "::status is 201",
+                "id": "ec8c9afd59577ad0eb26fbf150ecf791",
+                "passes": 2044,
+                "fails": 0,
+                "name": "status is 201"
+            },
+            "has bookingReference": {
+                "id": "d93b4264fb1e3fadd2a348725c9aa501",
+                "passes": 2044,
+                "fails": 0,
+                "name": "has bookingReference",
+                "path": "::has bookingReference"
+            }
+        },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {}
+    }
+}
