@@ -15,10 +15,11 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "start": "node server/src/index.js",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
-    "build": "cd client && npm run build",
+    "build": "npm --prefix client install && npm --prefix client run build && npm --prefix server install",
     "lint": "concurrently \"cd server && npm run lint\" \"cd client && npm run lint\"",
     "test": "concurrently \"cd server && npm test\" \"cd client && npm test\"",
     "test:server": "cd server && npm test",

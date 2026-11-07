@@ -6,6 +6,8 @@
  * starting the server, allowing it to be used in tests.
  */
 
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -18,6 +20,9 @@ import { errorHandler } from './shared/middleware/errorHandler.js';
 import { notFoundHandler } from './shared/middleware/notFoundHandler.js';
 import apiRouter from './routes/index.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 
 // Trust reverse proxy (ALB / NGINX / Cloudflare)
@@ -26,7 +31,9 @@ app.set('trust proxy', 1);
 // ---------------------------------------------------------------------------
 // Security middleware
 // ---------------------------------------------------------------------------
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,
+}));
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'],
   credentials: true,
@@ -90,6 +97,21 @@ app.get('/api/health', (_req, res) => {
 // API routes
 // ---------------------------------------------------------------------------
 app.use('/api', apiRouter);
+
+// ---------------------------------------------------------------------------
+// Production client static assets & SPA routing
+// ---------------------------------------------------------------------------
+if (process.env.NODE_ENV === 'production') {
+  const clientDist = path.resolve(__dirname, '../../client/dist');
+  app.use(express.static(clientDist));
+
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Error handling

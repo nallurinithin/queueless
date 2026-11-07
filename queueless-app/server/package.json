@@ -7,7 +7,7 @@
   "main": "src/index.js",
   "scripts": {
     "dev": "cross-env NODE_ENV=development nodemon --env-file=.env src/index.js",
-    "start": "cross-env NODE_ENV=production node --env-file=.env src/index.js",
+    "start": "cross-env NODE_ENV=production node src/index.js",
     "lint": "eslint src/ --ext .js",
     "test": "cross-env NODE_ENV=test MONGODB_URI=mongodb://127.0.0.1:27017/queueless_test?directConnection=true vitest run",
     "test:watch": "cross-env NODE_ENV=test MONGODB_URI=mongodb://127.0.0.1:27017/queueless_test?directConnection=true vitest",
