@@ -54,7 +54,7 @@ const clinicSchema = new mongoose.Schema(
     operatingHours: [operatingHoursSchema],
     settings: {
       defaultConsultationDurationMins: { type: Number, default: 15 },
-      slotHoldDurationSecs: { type: Number, default: 300 }, // 5 minutes
+      slotHoldDurationSecs: { type: Number, default: 300 }, // 5 minutes (system-controlled)
       defaultDepositAmount: { type: Number, default: 120 },
       earlyCheckInWindowMins: { type: Number, default: 15 },
       lateGracePeriodMins: { type: Number, default: 5 },
@@ -64,12 +64,15 @@ const clinicSchema = new mongoose.Schema(
     },
     depositPolicy: {
       enabled: { type: Boolean, default: true },
-      defaultAmount: { type: Number, default: 120 },
+      defaultAmount: { type: Number, default: 100, min: 0 },
       walkInRequiresDeposit: { type: Boolean, default: false }, // Walk-ins pay 0 advance deposit
     },
     cancellationPolicy: {
-      deadlineHours: { type: Number, default: 2 },
-      refundPercentage: { type: Number, default: 100 },
+      deadlineHours: { type: Number, default: 2, min: 0 },
+      refundPercentageBeforeDeadline: { type: Number, default: 100, min: 0, max: 100 },
+      refundPercentageAfterDeadline: { type: Number, default: 0, min: 0, max: 100 },
+      clinicCancellationRefundPercentage: { type: Number, default: 100 }, // Clinic-initiated is always 100%
+      refundPercentage: { type: Number, default: 100 }, // Legacy alias for refundPercentageBeforeDeadline
     },
     localesEnabled: {
       type: [String],

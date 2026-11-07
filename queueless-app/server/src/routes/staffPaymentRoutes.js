@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { paymentService } from '../services/paymentService.js';
 import { requireStaffAuth, requireRole } from '../shared/middleware/auth.js';
 import { PaymentOrder, PAYMENT_STATUS, STAFF_ROLES, Appointment, APPOINTMENT_STATUS } from '../models/index.js';
+import { getRazorpayConfig } from '../config/razorpay.js';
+import { logger } from '../shared/logger.js';
 
 const router = Router();
 
@@ -63,6 +65,45 @@ router.post('/:id/reconcile', async (req, res, next) => {
       paymentOrder.refundAmount = paymentOrder.amount;
       paymentOrder.refundReason = notes || 'Refund issued due to expired hold.';
       paymentOrder.refundCompletedAt = new Date();
+
+      // Trigger provider refund if paid via Razorpay
+      const rzpConfig = getRazorpayConfig();
+      if (
+        paymentOrder.providerPaymentId &&
+        paymentOrder.providerPaymentId.startsWith('pay_') &&
+        rzpConfig.keyId &&
+        rzpConfig.keySecret &&
+        !rzpConfig.keyId.includes('placeholder')
+      ) {
+        try {
+          const auth = Buffer.from(`${rzpConfig.keyId}:${rzpConfig.keySecret}`).toString('base64');
+          const refundRes = await fetch(
+            `https://api.razorpay.com/v1/payments/${paymentOrder.providerPaymentId}/refund`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Basic ${auth}`,
+              },
+              body: JSON.stringify({
+                amount: paymentOrder.amount,
+                notes: {
+                  reconciliationId: paymentOrder._id.toString(),
+                  reason: notes || 'Refund issued due to expired hold.',
+                  mode: rzpConfig.mode,
+                },
+              }),
+            }
+          );
+          const refundData = await refundRes.json();
+          if (refundData && refundData.id) {
+            paymentOrder.refundId = refundData.id;
+          }
+        } catch (rfErr) {
+          logger.error('Staff reconciliation refund API call failed:', rfErr);
+        }
+      }
+
       await paymentOrder.save();
 
       await Appointment.findByIdAndUpdate(paymentOrder.appointmentId, {

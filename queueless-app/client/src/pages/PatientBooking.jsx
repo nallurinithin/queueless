@@ -514,7 +514,7 @@ export function PatientBooking() {
                                 onClick={() => handlePayDeposit(appt._id)}
                                 className="bg-amber-600 hover:bg-amber-700 text-white"
                               >
-                                Pay ₹100 Deposit
+                                Pay ₹{appt.depositAmount !== undefined ? appt.depositAmount : (appt.policySnapshot?.depositAmount ?? 100)} Deposit
                               </Button>
                             )}
                             {appt.status === 'CONFIRMED' && (

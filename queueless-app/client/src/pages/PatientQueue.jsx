@@ -289,14 +289,14 @@ export function PatientQueue() {
               <div>
                 <h3 className="text-xl font-bold text-slate-900">Slot Held for 5 Minutes</h3>
                 <p className="text-sm text-slate-600 mt-1 max-w-md mx-auto">
-                  Your doctor and slot have been reserved! Please complete the ₹100 commitment deposit to confirm.
+                  Your doctor and slot have been reserved! Please complete the ₹{activeQueue.depositAmount !== undefined ? activeQueue.depositAmount : 100} commitment deposit to confirm.
                 </p>
               </div>
 
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs max-w-sm mx-auto text-left space-y-1.5">
                 <p><strong>Booking Reference:</strong> {activeQueue.token}</p>
                 <p><strong>Doctor:</strong> {activeQueue.doctorName} ({activeQueue.roomNumber})</p>
-                <p><strong>Deposit Required:</strong> ₹100 (Refundable under clinic policy)</p>
+                <p><strong>Deposit Required:</strong> ₹{activeQueue.depositAmount !== undefined ? activeQueue.depositAmount : 100} (Refundable under clinic policy)</p>
               </div>
 
               <div className="pt-2">
@@ -305,7 +305,7 @@ export function PatientQueue() {
                   className="bg-amber-600 hover:bg-amber-700 text-white"
                   onClick={() => handlePayDeposit(activeQueue.appointmentId)}
                 >
-                  <span>Pay ₹100 Deposit (Razorpay / UPI)</span>
+                  <span>Pay ₹{activeQueue.depositAmount !== undefined ? activeQueue.depositAmount : 100} Deposit (Razorpay / UPI)</span>
                   <ArrowRight className="w-4 h-4 ml-1.5" />
                 </Button>
               </div>

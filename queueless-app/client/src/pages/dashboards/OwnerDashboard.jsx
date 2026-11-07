@@ -20,6 +20,7 @@ import {
   RotateCcw,
   Ban,
   RefreshCw,
+  Lock,
 } from 'lucide-react';
 
 export function OwnerDashboard() {
@@ -75,9 +76,118 @@ export function OwnerDashboard() {
     }
   };
 
+  // Policy Management State
+  const [depositEnabled, setDepositEnabled] = useState(true);
+  const [depositAmount, setDepositAmount] = useState(100);
+  const [deadlineHours, setDeadlineHours] = useState(2);
+  const [refundBeforeDeadline, setRefundBeforeDeadline] = useState(100);
+  const [refundAfterDeadline, setRefundAfterDeadline] = useState(0);
+  const [savedPolicies, setSavedPolicies] = useState(null);
+  const [policySaving, setPolicySaving] = useState(false);
+  const [policySuccessMsg, setPolicySuccessMsg] = useState('');
+  const [policyErrorMsg, setPolicyErrorMsg] = useState('');
+
+  const fetchPolicies = async () => {
+    try {
+      const res = await fetch('/api/v1/clinic/profile', {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        const dp = data.data.depositPolicy || {};
+        const cp = data.data.cancellationPolicy || {};
+        setDepositEnabled(dp.enabled !== false);
+        setDepositAmount(dp.defaultAmount !== undefined ? dp.defaultAmount : 100);
+        setDeadlineHours(cp.deadlineHours !== undefined ? cp.deadlineHours : 2);
+        setRefundBeforeDeadline(
+          cp.refundPercentageBeforeDeadline !== undefined
+            ? cp.refundPercentageBeforeDeadline
+            : (cp.refundPercentage !== undefined ? cp.refundPercentage : 100)
+        );
+        setRefundAfterDeadline(cp.refundPercentageAfterDeadline !== undefined ? cp.refundPercentageAfterDeadline : 0);
+        setSavedPolicies({
+          depositPolicy: dp,
+          cancellationPolicy: cp,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch clinic policies:', err);
+    }
+  };
+
+  const handleSavePolicies = async (e) => {
+    e.preventDefault();
+    setPolicySuccessMsg('');
+    setPolicyErrorMsg('');
+
+    const numDeposit = Number(depositAmount);
+    if (depositEnabled && (isNaN(numDeposit) || numDeposit < 0)) {
+      setPolicyErrorMsg('Advance deposit amount must be a valid non-negative number.');
+      return;
+    }
+
+    const numDeadline = Number(deadlineHours);
+    if (isNaN(numDeadline) || numDeadline < 0) {
+      setPolicyErrorMsg('Cancellation deadline must be a valid non-negative number of hours.');
+      return;
+    }
+
+    const numBefore = Number(refundBeforeDeadline);
+    if (isNaN(numBefore) || numBefore < 0 || numBefore > 100) {
+      setPolicyErrorMsg('Refund percentage before deadline must be between 0 and 100.');
+      return;
+    }
+
+    const numAfter = Number(refundAfterDeadline);
+    if (isNaN(numAfter) || numAfter < 0 || numAfter > 100) {
+      setPolicyErrorMsg('Refund percentage within/after deadline must be between 0 and 100.');
+      return;
+    }
+
+    setPolicySaving(true);
+    try {
+      const res = await fetch('/api/v1/clinic/policies', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          depositPolicy: {
+            enabled: depositEnabled,
+            defaultAmount: numDeposit,
+            walkInRequiresDeposit: false,
+          },
+          cancellationPolicy: {
+            deadlineHours: numDeadline,
+            refundPercentageBeforeDeadline: numBefore,
+            refundPercentageAfterDeadline: numAfter,
+            clinicCancellationRefundPercentage: 100,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update clinic policies.');
+      }
+
+      setPolicySuccessMsg('Clinic deposit and cancellation policies updated successfully.');
+      setSavedPolicies({
+        depositPolicy: data.data?.depositPolicy,
+        cancellationPolicy: data.data?.cancellationPolicy,
+      });
+      setTimeout(() => setPolicySuccessMsg(''), 6000);
+    } catch (err) {
+      setPolicyErrorMsg(err.message || 'Error updating clinic policies.');
+    } finally {
+      setPolicySaving(false);
+    }
+  };
+
   useEffect(() => {
     fetchStaffMembers();
     fetchMetrics();
+    fetchPolicies();
   }, []);
 
   const handleSendInvite = async (e) => {
@@ -171,6 +281,9 @@ export function OwnerDashboard() {
   const walkInPct = totalVolume > 0 ? Math.round((metrics.totalWalkIns / totalVolume) * 100) : 0;
   const onlinePct = totalVolume > 0 ? Math.round((metrics.onlineBookings / totalVolume) * 100) : 0;
 
+  // Filter out the logged-in clinic owner from the staff roster view so only hired doctors/receptionists are shown
+  const hiredStaff = staffList.filter((staff) => staff.role !== 'CLINIC_OWNER');
+
   const clinicStats = [
     { label: t('dashboards.owner.totalConsultations'), value: metrics.totalConsultationsToday, change: 'Today' },
     { label: t('dashboards.owner.averageWaitTime'), value: `${metrics.averageWaitTimeMins} ${t('dashboards.owner.mins')}`, change: t('dashboards.owner.targetWait') },
@@ -231,12 +344,12 @@ export function OwnerDashboard() {
             </div>
 
             <div className="divide-y divide-slate-100">
-              {staffList.length === 0 ? (
+              {hiredStaff.length === 0 ? (
                 <div className="text-center py-6 text-sm text-slate-500">
                   No additional staff added yet. Click <strong>"Manage Staff"</strong> to invite your first Doctor or Receptionist.
                 </div>
               ) : (
-                staffList.map((staff) => (
+                hiredStaff.map((staff) => (
                   <div key={staff.id} className="py-3 flex items-center justify-between">
                     <div>
                       <h4 className="font-semibold text-slate-900">{staff.name}</h4>
@@ -260,25 +373,167 @@ export function OwnerDashboard() {
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
               <h3 className="font-bold text-slate-800 text-lg flex items-center space-x-2">
                 <Settings className="w-5 h-5 text-teal-600" />
-                <span>{t('dashboards.owner.policiesTitle')}</span>
+                <span>Deposit & Cancellation Policy</span>
               </h3>
+              <Badge variant="primary" size="sm">Owner Only</Badge>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-600">
-              <div className="p-3 bg-slate-50 rounded-lg">
-                <span className="font-semibold text-slate-800 block mb-0.5">Advance Deposit</span>
-                <p>₹100 (Applicable to confirmed remote appointments only). Walk-ins pay ₹0 advance.</p>
+            {policySuccessMsg && (
+              <Alert variant="success" className="mb-4">
+                {policySuccessMsg}
+              </Alert>
+            )}
+
+            {policyErrorMsg && (
+              <Alert variant="danger" className="mb-4">
+                {policyErrorMsg}
+              </Alert>
+            )}
+
+            <form onSubmit={handleSavePolicies} className="space-y-4">
+              {/* SECTION A: Online Appointment Deposit */}
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-900 text-sm">Online Appointment Deposit</h4>
+                  {savedPolicies && (
+                    <Badge variant={savedPolicies.depositPolicy?.enabled ? 'success' : 'default'} size="sm">
+                      Saved: {savedPolicies.depositPolicy?.enabled ? `₹${savedPolicies.depositPolicy?.defaultAmount ?? 100}` : 'Disabled'}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-2 pt-0.5">
+                  <input
+                    type="checkbox"
+                    id="requireDepositToggle"
+                    checked={depositEnabled}
+                    onChange={(e) => setDepositEnabled(e.target.checked)}
+                    className="h-4 w-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
+                  />
+                  <label htmlFor="requireDepositToggle" className="text-xs font-semibold text-slate-800 cursor-pointer">
+                    Require advance deposit for online bookings
+                  </label>
+                </div>
+
+                {depositEnabled ? (
+                  <div className="pt-1">
+                    <Input
+                      label="Deposit Amount (INR ₹)"
+                      type="number"
+                      min="0"
+                      step="1"
+                      required={depositEnabled}
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      placeholder="e.g. 100"
+                      helperText="Collected via Razorpay / UPI to secure held slots. Walk-in patients always pay ₹0 advance."
+                    />
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                    Advance deposit requirement is <strong>disabled</strong>. Remote bookings will be confirmed immediately upon slot allocation without payment gateway redirection.
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-500 italic">
+                  Walk-in appointments registered on-site at reception always require ₹0 advance deposit.
+                </p>
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-lg">
-                <span className="font-semibold text-slate-800 block mb-0.5">Cancellation & Refund</span>
-                <p>Full refund if cancelled &gt;2 hours before appointment slot. 5-minute allocation hold window.</p>
+              {/* SECTION B: Cancellation & Refund Policy */}
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-900 text-sm">Cancellation & Refund Policy</h4>
+                  {savedPolicies && (
+                    <Badge variant="outline" size="sm">
+                      {savedPolicies.cancellationPolicy?.deadlineHours ?? 2}h Cutoff
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="space-y-2.5">
+                  <Input
+                    label="Cancellation Deadline (Hours before slot)"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    required
+                    value={deadlineHours}
+                    onChange={(e) => setDeadlineHours(e.target.value)}
+                    placeholder="e.g. 2"
+                    helperText="Time threshold for evaluating patient refund eligibility."
+                  />
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <Input
+                      label="Refund % Before Deadline"
+                      type="number"
+                      min="0"
+                      max="100"
+                      required
+                      value={refundBeforeDeadline}
+                      onChange={(e) => setRefundBeforeDeadline(e.target.value)}
+                      placeholder="100"
+                    />
+                    <Input
+                      label="Refund % Within Deadline"
+                      type="number"
+                      min="0"
+                      max="100"
+                      required
+                      value={refundAfterDeadline}
+                      onChange={(e) => setRefundAfterDeadline(e.target.value)}
+                      placeholder="0"
+                    />
+                  </div>
+
+                  {/* Clinic Initiated Guarantee */}
+                  <div className="p-2.5 bg-teal-50 border border-teal-200 rounded-lg text-xs text-teal-900 flex items-start space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold block">Clinic Cancellation: 100% Refund</span>
+                      <span>If the clinic or doctor cancels an appointment, the patient is always guaranteed a 100% full deposit refund (system-enforced guarantee).</span>
+                    </div>
+                  </div>
+
+                  {/* Live Policy Explanation */}
+                  <div className="p-2.5 bg-white rounded-lg border border-slate-200 text-xs space-y-1">
+                    <span className="font-semibold text-slate-800 block mb-0.5">Active Policy Preview:</span>
+                    <p className="text-slate-600">• More than {deadlineHours || 0} hours before slot: <strong>{refundBeforeDeadline || 0}% refund</strong></p>
+                    <p className="text-slate-600">• Within {deadlineHours || 0} hours of slot: <strong>{refundAfterDeadline || 0}% refund</strong></p>
+                    <p className="text-slate-600">• Clinic cancels: <strong>100% refund</strong></p>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-lg">
-                <span className="font-semibold text-slate-800 block mb-0.5">Queue Algorithm</span>
-                <p>FIFO baseline with bounded appointment priority within ±15 minutes of scheduled time.</p>
+              {/* Action Buttons */}
+              <div className="pt-1">
+                <Button variant="primary" size="md" type="submit" className="w-full" disabled={policySaving}>
+                  {policySaving ? 'Saving Changes...' : 'Save Policy Settings'}
+                </Button>
+                <p className="text-[11px] text-slate-500 mt-1.5 text-center">
+                  Changes apply to all newly requested appointments. Existing bookings retain their original snapshot terms.
+                </p>
               </div>
+            </form>
+          </Card>
+
+          {/* SECTION C: Queue Algorithm (System-Managed V1 Policy) */}
+          <Card className="border-slate-200 bg-slate-50/50">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-bold text-slate-800 text-sm flex items-center space-x-1.5">
+                <Lock className="w-3.5 h-3.5 text-slate-500" />
+                <span>Queue Algorithm (V1)</span>
+              </h4>
+              <Badge variant="default" size="sm">System Managed</Badge>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              QueueLess operates on a strict <strong>FIFO (First-In, First-Out)</strong> baseline with bounded priority for scheduled appointments within <strong>±15 minutes</strong> of their booked slot.
+            </p>
+            <div className="mt-2.5 pt-2 border-t border-slate-200 text-[11px] text-slate-500 space-y-1">
+              <p>• Emergency walk-ins receive immediate triage priority.</p>
+              <p>• Doctor rooms enforce single-patient consultation exclusivity.</p>
+              <p>• 5-minute allocation hold window is managed automatically by QueueLess.</p>
             </div>
           </Card>
         </div>
@@ -377,12 +632,12 @@ export function OwnerDashboard() {
 
           {/* Current Staff Roster */}
           <div>
-            <h4 className="font-bold text-slate-900 text-sm mb-2">Staff Roster ({staffList.length})</h4>
+            <h4 className="font-bold text-slate-900 text-sm mb-2">Staff Roster ({hiredStaff.length})</h4>
             <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
-              {staffList.length === 0 ? (
+              {hiredStaff.length === 0 ? (
                 <div className="p-4 text-center text-sm text-slate-500">No staff members found.</div>
               ) : (
-                staffList.map((staff) => (
+                hiredStaff.map((staff) => (
                   <div
                     key={staff.id}
                     className="p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white hover:bg-slate-50/50"
@@ -409,22 +664,20 @@ export function OwnerDashboard() {
                           Resend Email
                         </Button>
                       )}
-                      {staff.role !== 'CLINIC_OWNER' && (
-                        <Button
-                          variant={staff.status === 'ACTIVE' ? 'outline' : 'secondary'}
-                          size="sm"
-                          onClick={() => handleToggleStatus(staff.id, staff.status)}
-                        >
-                          {staff.status === 'ACTIVE' ? (
-                            <>
-                              <Ban className="w-3 h-3 mr-1 text-rose-500" />
-                              Deactivate
-                            </>
-                          ) : (
-                            'Reactivate'
-                          )}
-                        </Button>
-                      )}
+                      <Button
+                        variant={staff.status === 'ACTIVE' ? 'outline' : 'secondary'}
+                        size="sm"
+                        onClick={() => handleToggleStatus(staff.id, staff.status)}
+                      >
+                        {staff.status === 'ACTIVE' ? (
+                          <>
+                            <Ban className="w-3 h-3 mr-1 text-rose-500" />
+                            Deactivate
+                          </>
+                        ) : (
+                          'Reactivate'
+                        )}
+                      </Button>
                     </div>
                   </div>
                 ))

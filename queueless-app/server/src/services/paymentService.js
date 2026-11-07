@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import {
+  Clinic,
   PaymentOrder,
   PaymentWebhookEvent,
   Appointment,
@@ -9,10 +10,7 @@ import {
   AuditLog,
 } from '../models/index.js';
 import { logger } from '../shared/logger.js';
-
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_aarogyam';
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'test_secret_key_aarogyam_123';
-const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || 'test_webhook_secret_aarogyam_456';
+import { getRazorpayConfig } from '../config/razorpay.js';
 
 export const paymentService = {
   /**
@@ -20,11 +18,40 @@ export const paymentService = {
    * Invariant: Requires an active, unexpired 5-minute slot hold
    */
   async createPaymentOrder({ clinicId, appointmentId, bookingContactId }) {
+    const config = getRazorpayConfig();
+
     const appointment = await Appointment.findOne({ _id: appointmentId, clinicId });
     if (!appointment) {
       const err = new Error('Appointment not found.');
       err.statusCode = 404;
       throw err;
+    }
+
+    // Resolve deposit required and authoritative amount from appointment snapshot / fields
+    const isDepositRequired = appointment.depositRequired !== false &&
+      (appointment.policySnapshot?.depositRequired !== false);
+
+    let depositAmount = 0;
+    if (isDepositRequired) {
+      if (typeof appointment.depositRequired === 'number' && appointment.depositRequired > 0) {
+        depositAmount = appointment.depositRequired;
+      } else if (appointment.policySnapshot?.depositAmount !== undefined && appointment.policySnapshot.depositAmount >= 0) {
+        depositAmount = appointment.policySnapshot.depositAmount;
+      } else if (appointment.depositAmount !== undefined && appointment.depositAmount > 0) {
+        depositAmount = appointment.depositAmount;
+      } else {
+        const clinic = await Clinic.findById(clinicId);
+        depositAmount = clinic?.depositPolicy?.enabled !== false ? (clinic?.depositPolicy?.defaultAmount ?? 100) : 0;
+      }
+    }
+
+    if (!isDepositRequired || depositAmount <= 0 || appointment.paymentStatus === PAYMENT_STATUS.NOT_REQUIRED) {
+      appointment.paymentStatus = PAYMENT_STATUS.NOT_REQUIRED;
+      await appointment.save();
+      return {
+        paymentRequired: false,
+        message: 'No advance deposit required.',
+      };
     }
 
     if (appointment.status !== APPOINTMENT_STATUS.SLOT_HELD && appointment.status !== APPOINTMENT_STATUS.PENDING_REVIEW && appointment.status !== APPOINTMENT_STATUS.HOLD_EXPIRED) {
@@ -47,24 +74,13 @@ export const paymentService = {
       throw err;
     }
 
-    // Walk-ins or zero-deposit clinics
-    const depositAmount = appointment.depositRequired !== undefined ? appointment.depositRequired : 100;
-    if (depositAmount <= 0) {
-      appointment.paymentStatus = PAYMENT_STATUS.NOT_REQUIRED;
-      await appointment.save();
-      return {
-        paymentRequired: false,
-        message: 'No advance deposit required.',
-      };
-    }
-
-    const amountInPaise = depositAmount * 100;
+    const amountInPaise = Math.round(depositAmount * 100);
     let orderId = `order_ql_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 
     // Create genuine Razorpay order via Razorpay API if credentials configured
-    if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET && !RAZORPAY_KEY_ID.includes('placeholder')) {
+    if (config.keyId && config.keySecret && !config.keyId.includes('placeholder')) {
       try {
-        const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+        const auth = Buffer.from(`${config.keyId}:${config.keySecret}`).toString('base64');
         const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
           method: 'POST',
           headers: {
@@ -75,10 +91,12 @@ export const paymentService = {
             amount: amountInPaise,
             currency: 'INR',
             receipt: `rcpt_${appointment.bookingReference || appointment._id}`,
+            payment_capture: 1, // Explicit auto-capture for appointment commitment deposit
             notes: {
               appointmentId: appointment._id.toString(),
               bookingReference: appointment.bookingReference || '',
               clinicId: clinicId.toString(),
+              mode: config.mode,
             },
           }),
         });
@@ -104,6 +122,7 @@ export const paymentService = {
       currency: 'INR',
       status: PAYMENT_STATUS.PENDING,
       provider: 'RAZORPAY',
+      mode: config.mode,
     });
 
     return {
@@ -111,7 +130,8 @@ export const paymentService = {
       orderId: paymentOrder.orderId,
       amount: paymentOrder.amount,
       currency: paymentOrder.currency,
-      keyId: RAZORPAY_KEY_ID,
+      keyId: config.keyId,
+      mode: config.mode,
       slotHoldExpiresAt: appointment.slotHoldExpiresAt,
       depositAmountRupees: depositAmount,
     };
@@ -120,12 +140,15 @@ export const paymentService = {
   /**
    * Constant-Time HMAC-SHA256 Signature Verification for Client Return Callback
    */
-  verifyPaymentSignature({ orderId, paymentId, signature, secret = RAZORPAY_KEY_SECRET }) {
+  verifyPaymentSignature({ orderId, paymentId, signature, secret }) {
     if (!orderId || !paymentId || !signature) {
       return false;
     }
+    const config = getRazorpayConfig();
+    const verificationSecret = secret || config.keySecret;
+
     const expectedSignature = crypto
-      .createHmac('sha256', secret)
+      .createHmac('sha256', verificationSecret)
       .update(`${orderId}|${paymentId}`)
       .digest('hex');
 
@@ -139,14 +162,16 @@ export const paymentService = {
   /**
    * Constant-Time Webhook Signature Verification against Raw Request Buffer
    */
-  verifyWebhookSignature({ rawBody, signature, webhookSecret = RAZORPAY_WEBHOOK_SECRET }) {
+  verifyWebhookSignature({ rawBody, signature, webhookSecret }) {
     if (!rawBody || !signature) {
       return false;
     }
+    const config = getRazorpayConfig();
+    const verificationSecret = webhookSecret || config.webhookSecret;
 
     const bodyBuffer = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody, 'utf8');
     const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
+      .createHmac('sha256', verificationSecret)
       .update(bodyBuffer)
       .digest('hex');
 
@@ -160,12 +185,24 @@ export const paymentService = {
   /**
    * Confirm Payment & Reconcile with Slot Hold
    * Critical Invariant: Never silently overbook if hold expired before payment landed!
+   * Environment Safety: Never mix Test orders with Live payment verification.
    */
   async confirmPaymentAndHold({ orderId, providerPaymentId, providerSignature }) {
+    const config = getRazorpayConfig();
+
     const paymentOrder = await PaymentOrder.findOne({ orderId });
     if (!paymentOrder) {
       const err = new Error('Payment order not found.');
       err.statusCode = 404;
+      throw err;
+    }
+
+    // Safety Invariant: Environment order isolation
+    if (paymentOrder.mode && paymentOrder.mode !== config.mode) {
+      const err = new Error(
+        `[PAYMENT SAFETY] Mode mismatch: Order was created in ${paymentOrder.mode.toUpperCase()} mode, but current server environment is ${config.mode.toUpperCase()} mode. Never mix Test orders with Live payment verification!`
+      );
+      err.statusCode = 400;
       throw err;
     }
 
@@ -174,6 +211,15 @@ export const paymentService = {
         confirmed: true,
         alreadyProcessed: true,
         message: 'Payment already confirmed.',
+        paymentOrder,
+      };
+    }
+
+    if (paymentOrder.status === PAYMENT_STATUS.REFUNDED) {
+      return {
+        confirmed: false,
+        alreadyProcessed: true,
+        message: 'Payment has already been refunded. Ignoring out-of-order capture event.',
         paymentOrder,
       };
     }
@@ -305,7 +351,31 @@ export const paymentService = {
         const paymentEntity = eventPayload.payload?.payment?.entity;
         const orderId = paymentEntity?.order_id;
         if (orderId) {
-          await PaymentOrder.findOneAndUpdate({ orderId }, { status: PAYMENT_STATUS.FAILED });
+          const currentOrder = await PaymentOrder.findOne({ orderId });
+          if (currentOrder && (currentOrder.status === PAYMENT_STATUS.PAID || currentOrder.status === PAYMENT_STATUS.REFUNDED)) {
+            logger.warn(`Ignored out-of-order payment.failed event for order ${orderId} in status ${currentOrder.status}`);
+          } else {
+            await PaymentOrder.findOneAndUpdate({ orderId }, { status: PAYMENT_STATUS.FAILED });
+          }
+        }
+      } else if (eventPayload.event === 'refund.processed') {
+        const refundEntity = eventPayload.payload?.refund?.entity;
+        const paymentId = refundEntity?.payment_id;
+        const refundId = refundEntity?.id;
+        if (refundId || paymentId) {
+          await PaymentOrder.findOneAndUpdate(
+            { $or: [{ refundId }, { providerPaymentId: paymentId }] },
+            { status: PAYMENT_STATUS.REFUNDED, refundCompletedAt: new Date() }
+          );
+        }
+      } else if (eventPayload.event === 'refund.failed') {
+        const refundEntity = eventPayload.payload?.refund?.entity;
+        const refundId = refundEntity?.id;
+        if (refundId) {
+          await PaymentOrder.findOneAndUpdate(
+            { refundId },
+            { reconciliationNotes: `Refund failed on Razorpay: ${refundEntity.error_description || 'Unknown error'}` }
+          );
         }
       }
 
@@ -333,11 +403,34 @@ export const paymentService = {
    * - Patient cancellation > 2 hours prior to slot: 100% full refund
    * - Patient cancellation <= 2 hours prior to slot: 0% refund (strictly non-refundable)
    */
-  async cancelAppointmentWithPolicy({ clinicId, appointmentId, cancelledBy = 'PATIENT', reason = '' }) {
+  async cancelAppointmentWithPolicy({
+    clinicId,
+    appointmentId,
+    cancelledBy = 'PATIENT',
+    bookingContactId,
+    staffUser,
+    reason = '',
+  }) {
     const appointment = await Appointment.findOne({ _id: appointmentId, clinicId });
     if (!appointment) {
       const err = new Error('Appointment not found.');
       err.statusCode = 404;
+      throw err;
+    }
+
+    // Patient IDOR Protection Guard
+    if (cancelledBy === 'PATIENT' && bookingContactId) {
+      if (!appointment.bookingContactId || !appointment.bookingContactId.equals(bookingContactId)) {
+        const err = new Error('Forbidden: You are not authorized to cancel this appointment.');
+        err.statusCode = 403;
+        throw err;
+      }
+    }
+
+    // Staff Cross-Clinic Isolation Guard
+    if (staffUser?.clinicId && !appointment.clinicId.equals(staffUser.clinicId)) {
+      const err = new Error('Forbidden: You cannot access or modify appointments belonging to another clinic.');
+      err.statusCode = 403;
       throw err;
     }
 
@@ -351,11 +444,28 @@ export const paymentService = {
     // Check if deposit was paid
     if (appointment.paymentStatus === PAYMENT_STATUS.PAID && appointment.depositAmount > 0) {
       if (cancelledBy === 'STAFF' || cancelledBy === 'CLINIC') {
-        // Staff/Clinic initiated -> Always 100% full refund
+        // Staff/Clinic initiated -> Always 100% full refund of applicable deposit
         refundAmount = appointment.depositAmount;
         policyOutcome = 'FULL_REFUND_CLINIC_INITIATED';
       } else {
-        // Patient initiated -> Evaluate 2-hour policy
+        // Patient initiated -> Evaluate cancellation deadline policy from snapshot or clinic settings
+        let deadlineHours = 2;
+        let pctBefore = 100;
+        let pctAfter = 0;
+
+        if (appointment.policySnapshot && appointment.policySnapshot.cancellationDeadlineHours !== undefined) {
+          deadlineHours = appointment.policySnapshot.cancellationDeadlineHours;
+          pctBefore = appointment.policySnapshot.refundPercentageBeforeDeadline ?? (appointment.policySnapshot.refundPercentage ?? 100);
+          pctAfter = appointment.policySnapshot.refundPercentageAfterDeadline ?? 0;
+        } else {
+          const clinic = await Clinic.findById(clinicId);
+          if (clinic?.cancellationPolicy) {
+            deadlineHours = clinic.cancellationPolicy.deadlineHours ?? 2;
+            pctBefore = clinic.cancellationPolicy.refundPercentageBeforeDeadline ?? (clinic.cancellationPolicy.refundPercentage ?? 100);
+            pctAfter = clinic.cancellationPolicy.refundPercentageAfterDeadline ?? 0;
+          }
+        }
+
         const slotDate = appointment.allocatedSlot?.date || appointment.requestedWindow?.preferredDate;
         const slotTime = appointment.allocatedSlot?.startTime || '09:00';
         const slotDateTime = new Date(`${slotDate}T${slotTime}:00`);
@@ -364,12 +474,16 @@ export const paymentService = {
         const diffMs = slotDateTime.getTime() - now.getTime();
         const diffHours = diffMs / (1000 * 60 * 60);
 
-        if (diffHours > 2) {
-          refundAmount = appointment.depositAmount;
-          policyOutcome = 'FULL_REFUND_PRIOR_TO_2_HOURS';
+        if (diffHours > deadlineHours) {
+          refundAmount = Math.round((appointment.depositAmount * pctBefore) / 100);
+          policyOutcome = (deadlineHours === 2 && pctBefore === 100)
+            ? 'FULL_REFUND_PRIOR_TO_2_HOURS'
+            : (pctBefore === 100 ? 'FULL_REFUND_PRIOR_TO_DEADLINE' : (pctBefore === 0 ? 'NO_REFUND' : 'PARTIAL_REFUND_PRIOR_TO_DEADLINE'));
         } else {
-          refundAmount = 0;
-          policyOutcome = 'NO_REFUND_WITHIN_2_HOURS';
+          refundAmount = Math.round((appointment.depositAmount * pctAfter) / 100);
+          policyOutcome = (deadlineHours === 2 && pctAfter === 0)
+            ? 'NO_REFUND_WITHIN_2_HOURS'
+            : (pctAfter === 0 ? 'NO_REFUND_WITHIN_DEADLINE' : (pctAfter === 100 ? 'FULL_REFUND' : 'PARTIAL_REFUND_WITHIN_DEADLINE'));
         }
       }
     }
@@ -388,15 +502,16 @@ export const paymentService = {
       paymentOrder.refundCompletedAt = new Date();
 
       // Trigger official Razorpay refund if payment was made through Razorpay
+      const config = getRazorpayConfig();
       if (
         paymentOrder.providerPaymentId &&
         paymentOrder.providerPaymentId.startsWith('pay_') &&
-        RAZORPAY_KEY_ID &&
-        RAZORPAY_KEY_SECRET &&
-        !RAZORPAY_KEY_ID.includes('placeholder')
+        config.keyId &&
+        config.keySecret &&
+        !config.keyId.includes('placeholder')
       ) {
         try {
-          const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+          const auth = Buffer.from(`${config.keyId}:${config.keySecret}`).toString('base64');
           const refundRes = await fetch(
             `https://api.razorpay.com/v1/payments/${paymentOrder.providerPaymentId}/refund`,
             {
@@ -410,6 +525,7 @@ export const paymentService = {
                 notes: {
                   appointmentId: appointment._id.toString(),
                   reason: reason || 'Clinic cancellation policy',
+                  mode: config.mode,
                 },
               }),
             }

@@ -378,8 +378,8 @@ export function ReceptionistDashboard() {
   };
 
   
-  const handleCancelAndRefund = async (appointmentId) => {
-    if (!window.confirm('Are you sure you want to cancel this appointment and initiate a full refund of ₹100?')) {
+  const handleCancelAndRefund = async (appointmentId, depositAmount = 100) => {
+    if (!window.confirm(`Are you sure you want to cancel this appointment and initiate a full refund of ₹${depositAmount}?`)) {
       return;
     }
     try {
@@ -713,7 +713,7 @@ export function ReceptionistDashboard() {
                 )}
                 {req.status === 'SLOT_HELD' && (
                   <div className="mt-2 text-xs text-amber-900 bg-amber-50 border border-amber-200 p-2 rounded-lg font-medium">
-                    ⏱️ Slot reserved: {req.allocatedDoctor || 'Doctor'} ({req.allocatedSlot?.startTime || ''}). Awaiting patient ₹100 deposit.
+                    ⏱️ Slot reserved: {req.allocatedDoctor || 'Doctor'} ({req.allocatedSlot?.startTime || ''}). Awaiting patient ₹{req.depositAmount !== undefined ? req.depositAmount : 100} deposit.
                   </div>
                 )}
               </div>
@@ -1201,7 +1201,7 @@ export function ReceptionistDashboard() {
                     onChange={(e) => setRequireDeposit(e.target.checked)}
                     className="rounded text-teal-600 focus:ring-teal-500 h-4 w-4"
                   />
-                  <span>Require Online Deposit (₹100 via Razorpay / UPI)</span>
+                  <span>Require Online Deposit (Applicable clinic deposit via Razorpay / UPI)</span>
                 </label>
                 <p className="text-[11px] text-teal-700 ml-6 mt-0.5">
                   {requireDeposit

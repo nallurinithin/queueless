@@ -52,6 +52,12 @@ const paymentOrderSchema = new mongoose.Schema(
       type: String,
       default: 'RAZORPAY',
     },
+    mode: {
+      type: String,
+      enum: ['test', 'live'],
+      default: 'test',
+      index: true,
+    },
     providerPaymentId: {
       type: String,
       sparse: true,

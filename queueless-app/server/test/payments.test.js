@@ -14,12 +14,19 @@ import {
   PaymentOrder,
   PaymentWebhookEvent,
   SlotHold,
+  PatientSession,
   APPOINTMENT_STATUS,
   PAYMENT_STATUS,
 } from '../src/models/index.js';
 import { bootstrapOwner } from '../src/scripts/bootstrap-owner.js';
 import { staffAuthService } from '../src/services/staffAuthService.js';
 import { paymentService } from '../src/services/paymentService.js';
+import {
+  getRazorpayConfig,
+  validateRazorpayConfig,
+  getPublicRazorpayConfig,
+  RAZORPAY_MODES,
+} from '../src/config/razorpay.js';
 
 const TEST_SECRET = 'test_secret_key_aarogyam_123';
 const TEST_WEBHOOK_SECRET = 'test_webhook_secret_aarogyam_456';
@@ -29,6 +36,7 @@ describe('Milestone 5: Payment Engine, Webhooks, Idempotency, and Refunds', () =
   let departmentId;
   let doctorId;
   let staffToken;
+  let patientToken;
   let bookingContact;
   let patient;
   let heldAppointment;
@@ -90,6 +98,17 @@ describe('Milestone 5: Payment Engine, Webhooks, Idempotency, and Refunds', () =
       fullName: 'Vikram Seth',
       gender: 'MALE',
       age: 42,
+    });
+
+    patientToken = crypto.randomBytes(32).toString('hex');
+    const patientTokenHash = crypto.createHash('sha256').update(patientToken).digest('hex');
+    await PatientSession.create({
+      clinicId,
+      bookingContactId: bookingContact._id,
+      sessionTokenHash: patientTokenHash,
+      expiresAt: new Date(Date.now() + 7 * 86400000),
+      absoluteExpiresAt: new Date(Date.now() + 30 * 86400000),
+      lastActivityAt: new Date(),
     });
 
     // 5. Active Held Appointment (expires in +5 minutes)
@@ -421,6 +440,7 @@ describe('Milestone 5: Payment Engine, Webhooks, Idempotency, and Refunds', () =
 
     const res = await request(app)
       .post('/api/v1/payments/cancel')
+      .set('Cookie', `queueless_patient_session=${patientToken}`)
       .send({ appointmentId: refundableApt._id.toString(), reason: 'Patient plans changed' })
       .expect(200);
 
@@ -474,6 +494,7 @@ describe('Milestone 5: Payment Engine, Webhooks, Idempotency, and Refunds', () =
 
     const res = await request(app)
       .post('/api/v1/payments/cancel')
+      .set('Cookie', `queueless_patient_session=${patientToken}`)
       .send({ appointmentId: nonRefundableApt._id.toString(), reason: 'Last minute cancellation' })
       .expect(200);
 
@@ -511,6 +532,353 @@ describe('Milestone 5: Payment Engine, Webhooks, Idempotency, and Refunds', () =
 
     expect(resolveRes.body.success).toBe(true);
     expect(resolveRes.body.data.status).toBe(PAYMENT_STATUS.REFUNDED);
+  });
+
+  it('12. Environment Mode Separation: defaults to test mode when RAZORPAY_MODE is unset', () => {
+    const defaultCfg = getRazorpayConfig({});
+    expect(defaultCfg.mode).toBe('test');
+    expect(defaultCfg.isLive).toBe(false);
+    expect(defaultCfg.keyId).toBeDefined();
+    expect(defaultCfg.keyId.startsWith('rzp_test_')).toBe(true);
+  });
+
+  it('13. Live Mode Activation: correctly activates live mode with valid live credentials', () => {
+    const liveCfg = getRazorpayConfig({
+      RAZORPAY_MODE: 'live',
+      RAZORPAY_LIVE_KEY_ID: 'rzp_live_test_safe_id_999',
+      RAZORPAY_LIVE_KEY_SECRET: 'live_secret_safe_val_888',
+      RAZORPAY_LIVE_WEBHOOK_SECRET: 'live_webhook_safe_val_777',
+    });
+
+    expect(liveCfg.mode).toBe('live');
+    expect(liveCfg.isLive).toBe(true);
+    expect(liveCfg.keyId).toBe('rzp_live_test_safe_id_999');
+    expect(liveCfg.keySecret).toBe('live_secret_safe_val_888');
+    expect(liveCfg.webhookSecret).toBe('live_webhook_safe_val_777');
+  });
+
+  it('14. Credential Safety Guard: rejects mismatched or missing credentials in test and live modes', () => {
+    // 1. Live mode with test key prefix must fail
+    expect(() =>
+      validateRazorpayConfig({
+        mode: 'live',
+        keyId: 'rzp_test_invalid_prefix',
+        keySecret: 'secret_123',
+        webhookSecret: 'wh_secret_123',
+      })
+    ).toThrow(/Test keys cannot be used in Live mode/i);
+
+    // 2. Live mode missing live key secret must fail
+    expect(() =>
+      validateRazorpayConfig({
+        mode: 'live',
+        keyId: 'rzp_live_valid_key',
+        keySecret: '',
+        webhookSecret: 'wh_secret_123',
+      })
+    ).toThrow(/RAZORPAY_LIVE_KEY_SECRET is missing/i);
+
+    // 3. Live mode missing webhook secret must fail
+    expect(() =>
+      validateRazorpayConfig({
+        mode: 'live',
+        keyId: 'rzp_live_valid_key',
+        keySecret: 'secret_123',
+        webhookSecret: '',
+      })
+    ).toThrow(/RAZORPAY_LIVE_WEBHOOK_SECRET is missing/i);
+
+    // 4. Test mode with live key prefix must fail
+    expect(() =>
+      validateRazorpayConfig({
+        mode: 'test',
+        keyId: 'rzp_live_accidentally_in_test',
+        keySecret: 'secret_123',
+        webhookSecret: 'wh_secret_123',
+      })
+    ).toThrow(/Live credentials must NEVER be used in Test mode/i);
+  });
+
+  it('15. Public Configuration Safety: frontend receives only public keyId and mode, never secrets', () => {
+    const publicConfig = getPublicRazorpayConfig();
+    expect(publicConfig).toBeDefined();
+    expect(publicConfig.mode).toBe('test');
+    expect(publicConfig.keyId).toBeDefined();
+    expect(publicConfig.keySecret).toBeUndefined();
+    expect(publicConfig.webhookSecret).toBeUndefined();
+  });
+
+  it('16. Order Environment Isolation: blocks confirming or processing test orders when in live mode', async () => {
+    // Create an order tagged with mode: 'test'
+    const testOrder = await PaymentOrder.create({
+      clinicId,
+      appointmentId: heldAppointment._id,
+      bookingContactId: bookingContact._id,
+      patientId: patient._id,
+      orderId: 'order_test_env_isolation_01',
+      amount: 10000,
+      currency: 'INR',
+      status: PAYMENT_STATUS.PENDING,
+      mode: 'test',
+    });
+
+    // Temporarily simulate server operating in LIVE mode
+    process.env.RAZORPAY_MODE = 'live';
+    process.env.RAZORPAY_LIVE_KEY_ID = 'rzp_live_env_safe_check_01';
+    process.env.RAZORPAY_LIVE_KEY_SECRET = 'live_secret_env_check_01';
+    process.env.RAZORPAY_LIVE_WEBHOOK_SECRET = 'live_webhook_env_check_01';
+
+    try {
+      await expect(
+        paymentService.confirmPaymentAndHold({
+          orderId: testOrder.orderId,
+          providerPaymentId: 'pay_test_001',
+          providerSignature: 'sig_test_001',
+        })
+      ).rejects.toThrow(/Mode mismatch.*Never mix Test orders with Live payment verification/i);
+    } finally {
+      // Restore test environment
+      delete process.env.RAZORPAY_MODE;
+      delete process.env.RAZORPAY_LIVE_KEY_ID;
+      delete process.env.RAZORPAY_LIVE_KEY_SECRET;
+      delete process.env.RAZORPAY_LIVE_WEBHOOK_SECRET;
+    }
+  });
+
+  it('17. Webhook Refund Processing: handles refund.processed webhook event and marks order refunded', async () => {
+    const paidOrder = await PaymentOrder.create({
+      clinicId,
+      appointmentId: heldAppointment._id,
+      bookingContactId: bookingContact._id,
+      patientId: patient._id,
+      orderId: 'order_refund_webhook_test_01',
+      amount: 10000,
+      currency: 'INR',
+      status: PAYMENT_STATUS.PAID,
+      providerPaymentId: 'pay_refund_hook_01',
+      refundId: 'rfnd_hook_001',
+    });
+
+    const refundEventPayload = {
+      event: 'refund.processed',
+      payload: {
+        refund: {
+          entity: {
+            id: 'rfnd_hook_001',
+            payment_id: 'pay_refund_hook_01',
+            amount: 10000,
+            status: 'processed',
+          },
+        },
+      },
+    };
+
+    const rawPayload = JSON.stringify(refundEventPayload);
+    const validSignature = crypto
+      .createHmac('sha256', TEST_WEBHOOK_SECRET)
+      .update(Buffer.from(rawPayload, 'utf8'))
+      .digest('hex');
+
+    const hookRes = await request(app)
+      .post('/api/v1/payments/webhook')
+      .set('x-razorpay-signature', validSignature)
+      .set('x-razorpay-event-id', 'evt_refund_processed_999')
+      .send(refundEventPayload)
+      .expect(200);
+
+    expect(hookRes.body.success).toBe(true);
+
+    const updatedOrder = await PaymentOrder.findById(paidOrder._id);
+    expect(updatedOrder.status).toBe(PAYMENT_STATUS.REFUNDED);
+    expect(updatedOrder.refundCompletedAt).toBeDefined();
+  });
+
+  it('18. Out-of-Order Webhook: payment.failed arriving after order is already PAID does not overwrite PAID status', async () => {
+    const paidOrder = await PaymentOrder.create({
+      clinicId,
+      appointmentId: heldAppointment._id,
+      bookingContactId: bookingContact._id,
+      patientId: patient._id,
+      orderId: 'order_ooo_paid_protect_01',
+      amount: 10000,
+      currency: 'INR',
+      status: PAYMENT_STATUS.PAID,
+      providerPaymentId: 'pay_ooo_paid_01',
+    });
+
+    const failedPayload = {
+      event: 'payment.failed',
+      payload: {
+        payment: {
+          entity: {
+            id: 'pay_ooo_failed_01',
+            order_id: paidOrder.orderId,
+            status: 'failed',
+          },
+        },
+      },
+    };
+
+    const rawPayload = JSON.stringify(failedPayload);
+    const validSignature = crypto
+      .createHmac('sha256', TEST_WEBHOOK_SECRET)
+      .update(Buffer.from(rawPayload, 'utf8'))
+      .digest('hex');
+
+    const res = await request(app)
+      .post('/api/v1/payments/webhook')
+      .set('x-razorpay-signature', validSignature)
+      .set('x-razorpay-event-id', 'evt_ooo_failed_999')
+      .send(failedPayload)
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+
+    // Verify order in DB was NOT changed to FAILED
+    const orderInDb = await PaymentOrder.findById(paidOrder._id);
+    expect(orderInDb.status).toBe(PAYMENT_STATUS.PAID);
+  });
+
+  it('19. Out-of-Order Webhook: payment.captured arriving after order is already REFUNDED does not resurrect PAID status', async () => {
+    const refundedOrder = await PaymentOrder.create({
+      clinicId,
+      appointmentId: heldAppointment._id,
+      bookingContactId: bookingContact._id,
+      patientId: patient._id,
+      orderId: 'order_ooo_refund_protect_01',
+      amount: 10000,
+      currency: 'INR',
+      status: PAYMENT_STATUS.REFUNDED,
+      providerPaymentId: 'pay_ooo_refund_01',
+      refundId: 'rfnd_ooo_01',
+    });
+
+    const capturePayload = {
+      event: 'payment.captured',
+      payload: {
+        payment: {
+          entity: {
+            id: 'pay_ooo_refund_01',
+            order_id: refundedOrder.orderId,
+            status: 'captured',
+          },
+        },
+      },
+    };
+
+    const rawPayload = JSON.stringify(capturePayload);
+    const validSignature = crypto
+      .createHmac('sha256', TEST_WEBHOOK_SECRET)
+      .update(Buffer.from(rawPayload, 'utf8'))
+      .digest('hex');
+
+    const res = await request(app)
+      .post('/api/v1/payments/webhook')
+      .set('x-razorpay-signature', validSignature)
+      .set('x-razorpay-event-id', 'evt_ooo_capture_after_refund_999')
+      .send(capturePayload)
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+
+    // Verify order in DB was NOT changed to PAID
+    const orderInDb = await PaymentOrder.findById(refundedOrder._id);
+    expect(orderInDb.status).toBe(PAYMENT_STATUS.REFUNDED);
+  });
+
+  it('20. Webhook Refund Failure: handles refund.failed event and records failure reason in reconciliation notes', async () => {
+    const orderWithRefund = await PaymentOrder.create({
+      clinicId,
+      appointmentId: heldAppointment._id,
+      bookingContactId: bookingContact._id,
+      patientId: patient._id,
+      orderId: 'order_refund_fail_hook_01',
+      amount: 10000,
+      currency: 'INR',
+      status: PAYMENT_STATUS.PAID,
+      providerPaymentId: 'pay_rf_fail_01',
+      refundId: 'rfnd_fail_hook_01',
+    });
+
+    const refundFailedPayload = {
+      event: 'refund.failed',
+      payload: {
+        refund: {
+          entity: {
+            id: 'rfnd_fail_hook_01',
+            payment_id: 'pay_rf_fail_01',
+            amount: 10000,
+            status: 'failed',
+            error_description: 'Beneficiary bank account inactive or closed',
+          },
+        },
+      },
+    };
+
+    const rawPayload = JSON.stringify(refundFailedPayload);
+    const validSignature = crypto
+      .createHmac('sha256', TEST_WEBHOOK_SECRET)
+      .update(Buffer.from(rawPayload, 'utf8'))
+      .digest('hex');
+
+    const res = await request(app)
+      .post('/api/v1/payments/webhook')
+      .set('x-razorpay-signature', validSignature)
+      .set('x-razorpay-event-id', 'evt_refund_failed_999')
+      .send(refundFailedPayload)
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+
+    const orderInDb = await PaymentOrder.findById(orderWithRefund._id);
+    expect(orderInDb.reconciliationNotes).toContain('Beneficiary bank account inactive or closed');
+  });
+
+  it('21. Webhook Signature Security: strictly rejects tampered payloads and forged signatures with HTTP 401', async () => {
+    const payload = {
+      event: 'payment.captured',
+      payload: { payment: { entity: { id: 'pay_forged_01', order_id: 'order_forged_01' } } },
+    };
+
+    // Case A: Missing signature header
+    await request(app)
+      .post('/api/v1/payments/webhook')
+      .send(payload)
+      .expect(401);
+
+    // Case B: Tampered signature header
+    await request(app)
+      .post('/api/v1/payments/webhook')
+      .set('x-razorpay-signature', '0000000000000000000000000000000000000000000000000000000000000000')
+      .send(payload)
+      .expect(401);
+  });
+
+  it('22. Unknown Webhook Events: acknowledges unknown event types cleanly without throwing error', async () => {
+    const unknownPayload = {
+      event: 'subscription.charged',
+      payload: { subscription: { entity: { id: 'sub_random_123' } } },
+    };
+
+    const rawPayload = JSON.stringify(unknownPayload);
+    const validSignature = crypto
+      .createHmac('sha256', TEST_WEBHOOK_SECRET)
+      .update(Buffer.from(rawPayload, 'utf8'))
+      .digest('hex');
+
+    const res = await request(app)
+      .post('/api/v1/payments/webhook')
+      .set('x-razorpay-signature', validSignature)
+      .set('x-razorpay-event-id', 'evt_unknown_type_999')
+      .send(unknownPayload)
+      .expect(200);
+
+    expect(res.body.success).toBe(true);
+
+    const recordedEvent = await PaymentWebhookEvent.findOne({ eventId: 'evt_unknown_type_999' });
+    expect(recordedEvent).toBeDefined();
+    expect(recordedEvent.eventType).toBe('subscription.charged');
+    expect(recordedEvent.status).toBe('PROCESSED');
   });
 });
 

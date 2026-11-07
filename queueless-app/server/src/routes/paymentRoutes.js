@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { paymentService } from '../services/paymentService.js';
+import { requirePatientOrStaffAuth } from '../shared/middleware/auth.js';
 import { Clinic } from '../models/index.js';
 
 const router = Router();
@@ -98,15 +99,17 @@ router.post('/webhook', async (req, res, next) => {
  * POST /api/v1/payments/cancel
  * Cancel appointment with 2-hour refund policy evaluation
  */
-router.post('/cancel', async (req, res, next) => {
+router.post('/cancel', requirePatientOrStaffAuth, async (req, res, next) => {
   try {
     const { appointmentId, reason } = req.body;
-    const clinicId = await getActiveClinicId();
+    const clinicId = req.clinicId || (await getActiveClinicId());
 
     const result = await paymentService.cancelAppointmentWithPolicy({
       clinicId,
       appointmentId,
-      cancelledBy: 'PATIENT',
+      cancelledBy: req.staffUser ? 'STAFF' : 'PATIENT',
+      bookingContactId: req.bookingContact?._id,
+      staffUser: req.staffUser,
       reason,
     });
 
